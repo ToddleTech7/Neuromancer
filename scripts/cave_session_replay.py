@@ -318,6 +318,17 @@ def attention_rows(events, t0, limit=None):
     """
     out = []
     sel = {}
+    # 旧包没有 viewport.panel_px；ui.state.ui.panels 是面板布局的唯一证据。
+    panel_w = None
+    for e in events:
+        if _ctype(e) != 'ui.state':
+            continue
+        ui = e.get('ui') or {}
+        ps = ui.get('panels') or []
+        vals = [p[2] for p in ps if isinstance(p, (list, tuple))
+                and len(p) >= 3 and isinstance(p[2], (int, float)) and p[2] > 100]
+        if vals:
+            panel_w = max(vals)
     for e in events:
         typ = _ctype(e)
         if typ == 'selection.change':
@@ -331,10 +342,13 @@ def attention_rows(events, t0, limit=None):
             pos = vp.get('position_nm') or []
             npp = vp.get('nm_per_px') or {}
             vpt = vp.get('viewport') or {}
-            px = vpt.get('css_px') or []
+            px = vpt.get('panel_px') or vpt.get('css_px') or []
+            width_px = (vpt.get('panel_px') or [None])[0] or panel_w
+            if not width_px and px:
+                width_px = px[0]
             vieww = None
-            if npp.get('x') and px and px[0]:
-                vieww = int(npp['x'] * px[0])
+            if npp.get('x') and width_px:
+                vieww = int(npp['x'] * width_px)
             out.append({
                 't': rel_s(e['t_wall'], t0), 'kind': '相机',
                 'center': _vec3(pos),

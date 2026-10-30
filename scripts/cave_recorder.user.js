@@ -366,7 +366,7 @@
     } catch (e) { return null; }
   }
   function viewportInfo() {
-    let w = null, h = null;
+    let w = null, h = null, panel = null;
     try {
       const cs = Array.from(document.querySelectorAll('canvas'))
         .filter(x => x.width > 100 && x.height > 100)
@@ -375,8 +375,19 @@
         w = cs[0].clientWidth || cs[0].width;
         h = cs[0].clientHeight || cs[0].height;
       }
+      // 一个 WebGL canvas 可以画 4panel；可见宽按**单个 2D 面板**算，
+      // 不能把整张 canvas 的 1280px 当成一个视口。取面积最大的 pane。
+      const ps = Array.from(document.querySelectorAll(
+        '.neuroglancer-rendered-data-panel'))
+        .map(el => el.getBoundingClientRect())
+        .filter(r => r.width > 100 && r.height > 100)
+        .sort((a, b) => (b.width * b.height) - (a.width * a.height));
+      if (ps.length) {
+        panel = [Math.round(ps[0].width), Math.round(ps[0].height)];
+      }
     } catch (e) { /* ignore */ }
-    return { css_px: [w, h], dpr: num(window.devicePixelRatio || 1) };
+    return { css_px: [w, h], panel_px: panel,
+             dpr: num(window.devicePixelRatio || 1) };
   }
 
   /* ---------- 界面状态（canvas 以外的东西：面板/工具栏/通知） ---------- */
@@ -1040,7 +1051,10 @@
   function semanticShots(vp, segs) {
     const now = wall();
     const k = semanticKey(vp, segs);
-    const px = (vp.viewport && vp.viewport.css_px) || [];
+    const vpt = vp.viewport || {};
+    // 4panel 下 css_px 是整张 canvas，panel_px 才是单个面板；
+    // 可见宽必须按实际 2D pane 算，否则会高估一倍。
+    const px = vpt.panel_px || vpt.css_px || [];
     const cur = { proj: vp.projectionScale, cross: vp.crossSectionScale,
                   vis: k.vis, seg: k.seg,
                   pos: vp.position_nm || null,

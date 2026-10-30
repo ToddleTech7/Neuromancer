@@ -87,6 +87,17 @@ class TestAttentionRows(unittest.TestCase):
         self.assertEqual(rows[1]['selected'], 'seg:2')
 
 
+    def test_visible_width_prefers_panel_px(self):
+        pack = mini_pack(events=[
+            {'type': 'viewer.state-change', 't_wall': T0,
+             'viewpoint': {'position_nm': [1, 2, 3],
+                           'nm_per_px': {'x': 24, 'y': 24},
+                           'viewport': {'css_px': [1280, 740],
+                                        'panel_px': [640, 348]}}},
+        ])
+        rows = cr.attention_rows(pack['events'], T0)
+        self.assertEqual(rows[0]['view_nm'], 15360)
+
     def test_visible_width_varies_with_nm_per_px(self):
         pack = mini_pack(events=[
             {'type': 'viewer.state-change', 't_wall': T0,
