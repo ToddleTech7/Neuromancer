@@ -41,6 +41,8 @@
 
 ### 工具
 
+- 回放工作台改为白底浅色界面；中间 Neuroglancer 舞台保持黑底，避免影响图像判断。
+
 - `nx collect / studio / replay / export / pack / verify-pack / doctor / export-csv / recover`。
 - `export-csv` 导出 events/episodes/hover；`load_test_pack.py` 做合成大会话包压测。
 - 公网兼容脚本默认 `viz.neurodata.io`，`CAVE_PUBLIC_URL` 可覆盖。
