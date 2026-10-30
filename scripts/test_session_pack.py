@@ -161,6 +161,29 @@ class TestSessionPack(unittest.TestCase):
         # 旧包不直接丢：同 session 重存先备份到 .old_*
         self.assertTrue(list(self.base.glob('.old_*')))
 
+    def test_failed_resave_keeps_old_pack(self):
+        # 临时目录写完之前失败，正式目录必须原样保留（不能出现半包）
+        d1, _ = csp.pack_session(_pack(), self.base)
+        before = (d1 / 'manifest.json').read_bytes()
+        with self.assertRaises(SystemExit):
+            csp.pack_session(_pack(), self.base, {'join': 'not-a-valid-leg'})
+        self.assertTrue(d1.exists())
+        self.assertEqual((d1 / 'manifest.json').read_bytes(), before)
+        self.assertFalse(list(self.base.glob('.tmp_*')))
+
+    def test_failed_new_pack_leaves_no_final(self):
+        # 第一次保存就失败：不能留下正式目录，也不能留下临时目录
+        with self.assertRaises(SystemExit):
+            csp.pack_session(_pack(), self.base, {'join': 'bad'})
+        self.assertFalse((self.base / 'sess_test').exists())
+        self.assertFalse(list(self.base.glob('.tmp_*')))
+
+    def test_successful_resave_leaves_no_staging(self):
+        csp.pack_session(_pack(), self.base)
+        csp.pack_session(_pack(), self.base)
+        self.assertFalse(list(self.base.glob('.tmp_*')))
+        self.assertTrue(list(self.base.glob('.old_*')))
+
     def test_export_csv_has_three_tables(self):
         import csv
         import export_csv

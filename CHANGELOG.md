@@ -9,7 +9,7 @@
 - 浏览器内旁路记录 pointer/wheel/key/state/checkpoint/keyframe/note。
 - `--open` 自开浏览器；`--cdp` 接管已有 Chrome；`/save` 与 `/draft` 双端点。
 - 结束并保存会等待最后一张关键帧落进包。
-- 草稿 30 秒增量落盘；保存成功后删除草稿；同 session 重存先备份 `.old_*`。
+- 草稿 30 秒增量落盘；保存成功后删除草稿；同 session 重存在隐藏临时目录完整写入后备份旧包并整体切换。
 - 超大 state 逐级降级（`source.state`/`segmentColors`/`segments`），标 `state_truncated`。
 - 图层样式（alpha/着色/colorSeed）参与回放与逐字段比对。
 - 冷启动分割层未加载的帧标 `pending_tiles`，不混进像素/内容结论。
@@ -52,5 +52,5 @@
 - 真实 CAVE 现场尚未验证；`picked`/当前工具/chunk/LOD/历史版本不在 v1。
 - 逐像素一致不是 v1 门；NCC 只作参考。
 - 公开数据 demo 2026-10-30 复跑 40/40；冷启动 `pending_tiles` 与 `color_mismatch` 单列，不计入内容/逐通道断言。
-- 同 session 重存已先备份 `.old_*`，但仍不是原子替换；原子替换留给 v1.x。
+- 同 session 重存改为“临时目录完整写入 → 备份旧包 → 整体切换”：写失败保留旧包，不产生半包；提交阶段两次 rename 之间仍有极短崩溃窗口。
 - 真人会话整段回放：纯输入 4/6（末段 107.56nm >60）；分段 3/3（15.19nm）；`--reanchor-gesture` 整段 6/6，但报告标 `reanchored`。v1 默认是纯输入。

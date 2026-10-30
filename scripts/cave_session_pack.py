@@ -33,7 +33,9 @@ import datetime as dt
 import hashlib
 import json
 import re
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -269,9 +271,26 @@ def health_summary(events, gaps_hint=None):
 
 
 # ---------------------------------------------------------------- 写包
+def _backup_path(final):
+    """给旧包找不冲突的备份名；同秒多次重存也不会撞名。"""
+    stamp = dt.datetime.now().strftime('%Y%m%d_%H%M%S_%f')
+    base = final.with_name('.old_%s_%s' % (final.name, stamp))
+    p = base
+    n = 1
+    while p.exists():
+        p = base.with_name(base.name + '_%d' % n)
+        n += 1
+    return p
+
+
 def pack_session(pack, out_dir=DEFAULT_OUT, legs=None, reasons=None,
                  extra_manifest=None, extra_shots=None, with_html=True):
-    """把会话包落成目录。
+    """把会话包原子地落成目录。
+
+    先在 `out_dir` 下的隐藏临时目录写完并校验，再整体切换到正式目录。
+    同一 session 重存时，旧包先改名为 `.old_*` 备份；临时目录写失败时
+    正式目录原样保留，读者不会看到半包。提交阶段的 rename 窗口很短；
+    若崩溃，旧包仍在 `.old_*`，临时目录可按前缀清理。
 
     extra_shots：宿主侧截图（例如 Playwright page.screenshot）。
     它**不是** recorder 的 canvas readback，必须用 source 字段标明，
@@ -281,14 +300,43 @@ def pack_session(pack, out_dir=DEFAULT_OUT, legs=None, reasons=None,
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     sid = pack.get('session_id') or 'session'
-    d = _unique_dir(out_dir, _safe_dirname(sid, 'session'), session_id=sid)
-    # 同一会话重存：先把旧包整体改名备份，再写新包。
-    # 不直接覆盖——第二次导出如果少事件/少图，旧数据仍可在 .old_* 里找回。
-    backup = None
-    if d.exists():
-        backup = d.with_name('.old_%s_%s' % (
-            d.name, dt.datetime.now().strftime('%Y%m%d_%H%M%S_%f')))
-        d.rename(backup)
+    final = _unique_dir(out_dir, _safe_dirname(sid, 'session'), session_id=sid)
+    backup = _backup_path(final) if final.exists() else None
+    stage = Path(tempfile.mkdtemp(
+        prefix='.tmp_%s_' % final.name, dir=str(out_dir)))
+    # mkdtemp 默认 0700；包目录一直按普通目录共享，保持原行为
+    stage.chmod(0o755)
+    try:
+        d, manifest = _pack_session_into(
+            stage, backup, sid, pack, legs, reasons,
+            extra_manifest, extra_shots, with_html)
+        # 提交前再确认一次：如果期间有别的进程创建了正式目录，
+        # 也先备份，避免把它当“不存在”直接 rename。
+        if final.exists() and backup is None:
+            backup = _backup_path(final)
+            manifest['previous_pack'] = str(backup)
+            (stage / 'manifest.json').write_text(
+                json.dumps(manifest, ensure_ascii=False, indent=1),
+                encoding='utf-8')
+        moved_old = False
+        try:
+            if final.exists():
+                final.rename(backup)
+                moved_old = True
+            stage.rename(final)
+        except BaseException:
+            if moved_old and not final.exists() and backup.exists():
+                backup.rename(final)
+            raise
+        return final, manifest
+    except BaseException:
+        shutil.rmtree(stage, ignore_errors=True)
+        raise
+
+
+def _pack_session_into(d, backup, sid, pack, legs, reasons,
+                       extra_manifest, extra_shots, with_html):
+    """把完整包写进 d（临时目录）；不负责提交/备份。"""
     (d / 'client' / 'shots').mkdir(parents=True, exist_ok=True)
     (d / 'derived').mkdir(parents=True, exist_ok=True)
 
@@ -430,6 +478,7 @@ def pack_session(pack, out_dir=DEFAULT_OUT, legs=None, reasons=None,
             print('[warn] 打开.html 未生成：%s: %s'
                   % (type(err).__name__, str(err)[:120]), flush=True)
     return d, manifest
+
 
 
 # ---------------------------------------------------------------- CLI
