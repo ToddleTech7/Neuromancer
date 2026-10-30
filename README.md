@@ -138,7 +138,6 @@ neuromancer/
 
 | 项 | 现状 |
 |---|---|
-| 渲染过程（tile / chunk / mip 级） | 采不到：页面内看不到 Worker 的请求，URL 只到 shard+mip。已拍板不做，见 [已定决策：渲染过程](docs/已定决策.md) |
 | 工具切换 | 本构建 `viewer.tool` 不存在；改用 DOM 读工具栏状态 |
 | 指针下的段 ID（`picked`） | 管道已通，真机值待验（[部署与验证：待验证清单](docs/部署与验证.md)） |
 | merge / split 提交 | 需要可写后端；公开数据只读 |
