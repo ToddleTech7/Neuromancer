@@ -1254,8 +1254,8 @@ function runDerive(kind) {
         d.err ? '失败' : ('exit ' + d.code);
       document.getElementById('dvout').textContent = d.err
         ? d.err
-        : ('$ ' + (d.stdout ? '' : '') + (d.stdout || '') +
-           (d.stderr ? '\n[stderr]\n' + d.stderr : ''));
+        : ((d.summary ? d.summary + '\n\n' : '') +
+           (d.stdout || '') + (d.stderr ? '\n[stderr]\n' + d.stderr : ''));
     })
     .catch(e => { document.getElementById('dvmsg').textContent = String(e); });
 }
@@ -1443,23 +1443,57 @@ class Handler(BaseHTTPRequestHandler):
         """跑 cave_episodes / cave_join，只回传 stdout 末尾。"""
         kind = body.get('kind') or 'episodes'
         pack = body.get('pack') or str(self.studio.packdir)
+        ops = HERE.parent / 'results' / 'cave_watch' / 'ops.jsonl'
         if kind == 'join':
+            if not ops.exists():
+                return {'kind': kind, 'pack': pack, 'code': 2,
+                        'stdout': '',
+                        'stderr': '缺少 op log：%s\n先跑 cave_op_watcher.py 生成。'
+                                  % rel_to_root(ops)}
             # 和 episodes 一致：派生结果跟着包走，不写到全局 results/joined。
             cmd = [sys.executable, str(HERE / 'cave_join.py'), pack,
-                   '--out', str(Path(pack) / 'derived')]
-            ops = HERE.parent / 'results' / 'cave_watch' / 'ops.jsonl'
-            if ops.exists():
-                cmd += ['--ops', str(ops)]
+                   '--out', str(Path(pack) / 'derived'),
+                   '--ops', str(ops)]
         else:
             cmd = [sys.executable, str(HERE / 'cave_episodes.py'), pack]
         try:
             r = subprocess.run(cmd, capture_output=True, text=True,
                                timeout=300, cwd=str(HERE.parent))
-            return {'kind': kind, 'pack': pack, 'code': r.returncode,
-                    'stdout': (r.stdout or '')[-6000:],
-                    'stderr': (r.stderr or '')[-2000:]}
+            out = {'kind': kind, 'pack': pack, 'code': r.returncode,
+                   'stdout': (r.stdout or '')[-6000:],
+                   'stderr': (r.stderr or '')[-2000:]}
+            out['summary'] = (self._derive_summary(kind, pack)
+                             if r.returncode == 0 else '')
+            return out
         except Exception as err:
             return {'err': '%s: %s' % (type(err).__name__, err)}
+
+    @staticmethod
+    def _derive_summary(kind, pack):
+        """给工作台一行可读摘要；文件不存在就返回空串。"""
+        derived = Path(pack) / 'derived'
+        try:
+            if kind == 'episodes':
+                ep = derived / 'episodes.jsonl'
+                if not ep.exists():
+                    return ''
+                rows = [json.loads(x) for x in
+                        ep.read_text(encoding='utf-8').splitlines() if x.strip()]
+                n = len(rows)
+                dur = sum(r.get('duration_ms') or 0 for r in rows) / 1000.0
+                return '派生摘要：%d 个 episode，总时长 %.1f s；输出 %s' % (
+                    n, dur, rel_to_root(derived))
+            js = sorted(derived.glob('*.join_summary.json'))
+            if not js:
+                return ''
+            s = json.loads(js[-1].read_text(encoding='utf-8'))
+            return '关联摘要：%s 个 op 匹配（%s）；输出 %s' % (
+                s.get('n_matched', 0),
+                ', '.join('%s=%s' % (k, v)
+                          for k, v in (s.get('matched') or {}).items()) or '无',
+                rel_to_root(js[-1].parent))
+        except Exception:
+            return ''
 
 
 REPO_ROOT = HERE.parent

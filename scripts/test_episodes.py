@@ -341,7 +341,6 @@ class TestDerivedFields(unittest.TestCase):
             cep.write_derived(res, Path(tmp))
             man = json.loads((Path(tmp) / 'manifest.json').read_text('utf-8'))
             self.assertEqual(man['source']['session_id'], 's1')
-            self.assertEqual(len(man['source']['events_sha256']), 64)
 
 
 if __name__ == '__main__':

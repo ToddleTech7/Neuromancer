@@ -22,7 +22,6 @@ D14 空闲阈值都未决）。放进在线采集会污染原始事件，而且�
 
 import argparse
 import datetime as dt
-import hashlib
 import json
 import re
 import statistics
@@ -403,14 +402,6 @@ def _sampling(pack):
     return dict(cfg or {})
 
 
-def _events_sha256(pack):
-    h = hashlib.sha256()
-    for e in pack.get('events') or []:
-        h.update(json.dumps(e, ensure_ascii=False, sort_keys=True).encode('utf-8'))
-        h.update(b'\n')
-    return h.hexdigest()
-
-
 def _selected_segments(evs):
     """从完整 state 里抽出选中集变化（不是 selection.change 的悬停）。"""
     out, prev = [], None
@@ -531,7 +522,6 @@ def derive_episodes(pack, policy=None):
         'policy_version': POLICY['version'],
         'policy': dict(POLICY),
         'source': {'session_id': pack.get('session_id'),
-                   'events_sha256': _events_sha256(pack),
                    'n_events': len(pack.get('events') or [])},
         # D10：把输入的采样粒度写进派生结果。
         # 不写的话，下游会把 50ms 采样过的轨迹当成全量轨迹做速度/加速度分析。

@@ -13,8 +13,9 @@
 - results/replay/<session_id>.html：静态回放页（视角轨迹 SVG + 事件表，
   无 JS 依赖，双击即开）
 
-join 自动探测：未显式给 --join 时，若存在
-results/joined/<session_id>.join.jsonl（cave_join.py 的默认命名）则自动加载。
+join 自动探测：未显式给 --join 时，依次找
+results/joined/<session_id>.join.jsonl 与 <包>/derived/<session_id>.join.jsonl
+（工作台默认把 join 写到后者）并自动加载。
 
 如实边界：回放只呈现会话包/join 里"确实记录了什么"；没有记录的显示为空缺，
 不做推断填补。位置轨迹以 voxel 坐标绘制（以 dims.scales 为单位）。
@@ -566,9 +567,14 @@ def replay_one(path, join_path=None, auto_join=True, out_path=None,
     join_info = None
     jp = Path(join_path) if join_path else None
     if jp is None and auto_join:
-        cand = JOINED_DIR / f'{sid}.join.jsonl'
-        if cand.exists():
-            jp = cand
+        cands = [JOINED_DIR / f'{sid}.join.jsonl']
+        pack_dir = pack.get('pack_dir')
+        if pack_dir:
+            cands.append(Path(pack_dir) / 'derived' / f'{sid}.join.jsonl')
+        for cand in cands:
+            if cand.exists():
+                jp = cand
+                break
     if jp is not None and jp.exists():
         join_info = load_join(jp)
         op_lines = [op_line(r, t0) for r in join_info['records']]

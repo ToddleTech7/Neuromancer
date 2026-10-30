@@ -45,7 +45,7 @@
 - 工作台鼠标点按录制视口缩放并夹在 iframe 内，不再因舞台比录制窗口小而跑到回放区域外。
 - `replay_manual_session` 增加分区像素报告；分区从 `ui.state.ui.panels` 生成，2D/3D 面板开关后自动变化，旧包回退固定 2D 三块。
 - 备注默认自动补一张 `moment=note` 关键帧（可关）；`shots.jsonl` 保留 `detail.note_id`，便于和备注关联。
-- 派生结果增加 `hover_selections`/`selected_segments` 区分、备注的 `shot_id` 引用、源事件 SHA256 与 `derived/manifest.json`；join 输出改到包内 `derived/`。
+- 派生结果增加 `hover_selections`/`selected_segments` 区分、备注的 `shot_id` 引用与 `derived/manifest.json`；join 输出改到包内 `derived/`。
 
 - `nx collect / studio / replay / export / pack / verify-pack / doctor / export-csv / recover`。
 - `export-csv` 导出 events/episodes/hover；`load_test_pack.py` 做合成大会话包压测。
