@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "neuromancer/schemas/sample_v0.1.schema.json",
+  "title": "Neuromancer 样本卡 v0.1",
+  "description": "公开数据样本卡的结构合约（schema 字段 neuromancer.sample.v0.1）。注意：id 类字段为 64 位整数，JS 消费方读取时需转字符串以防精度丢失（v0.2 可能改为字符串）。",
+  "type": "object",
+  "required": ["schema", "source", "observation", "action",
+               "segments", "outcome", "process", "labels"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": "neuromancer.sample.v0.1" },
+    "source": {
+      "type": "object",
+      "description": "数据来源：公开栈记录的操作",
+      "required": ["datastack", "op_id", "op_type", "user",
+                   "timestamp_utc"],
+      "additionalProperties": false,
+      "properties": {
+        "datastack": { "type": "string", "minLength": 1 },
+        "op_id": { "type": "integer", "minimum": 1 },
+        "op_type": { "enum": ["merge", "split"] },
+        "user": { "type": ["string", "integer", "null"] },
+        "timestamp_utc": { "type": ["string", "null"] }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "description": "观察侧：EM 重建视图与分割掩码（覆盖层）",
+      "required": ["render_params", "images", "interface_point_nm",
+                   "viewpoint", "note"],
+      "additionalProperties": false,
+      "properties": {
+        "render_params": {
+          "type": "object",
+          "required": ["S_nm", "mip"],
+          "additionalProperties": false,
+          "properties": {
+            "S_nm": { "type": "number", "exclusiveMinimum": 0 },
+            "mip": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "images": {
+          "type": "object",
+          "description": "相对样本目录的图像文件",
+          "required": ["em_xy", "em_xz", "em_yz", "overlay_xz"],
+          "additionalProperties": false,
+          "properties": {
+            "em_xy": { "type": "string", "minLength": 1 },
+            "em_xz": { "type": "string", "minLength": 1 },
+            "em_yz": { "type": "string", "minLength": 1 },
+            "overlay_xz": { "type": "string", "minLength": 1 }
+          }
+        },
+        "interface_point_nm": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "viewpoint": { "type": ["object", "null"],
+          "description": "真实会话的视角摘要；无匹配会话时为 null" },
+        "note": { "type": "string" }
+      }
+    },
+    "action": {
+      "type": "object",
+      "description": "服务端操作记录：编辑动作与其分段",
+      "required": ["type", "before_root_ids", "after_root_ids",
+                   "source_coords", "sink_coords"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "enum": ["merge", "split"] },
+        "before_root_ids": {
+          "type": "array", "items": { "type": "integer" }, "minItems": 1
+        },
+        "after_root_ids": {
+          "type": ["array", "null"], "items": { "type": "integer" }
+        },
+        "source_coords": { "type": ["array", "null"] },
+        "sink_coords": { "type": ["array", "null"] }
+      }
+    },
+    "segments": {
+      "type": "object",
+      "description": "CB2 语义的分段映射（待发布方确认）",
+      "required": ["segment1_id", "segment2_id", "semantics"],
+      "additionalProperties": false,
+      "properties": {
+        "segment1_id": { "type": ["integer", "null"] },
+        "segment2_id": { "type": ["integer", "null"] },
+        "semantics": { "type": "string", "minLength": 1 }
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "description": "操作结局派生（存活 / 被改写 / 最新）",
+      "required": ["state", "survival_seconds", "next_change",
+                   "checked_at"],
+      "additionalProperties": false,
+      "properties": {
+        "state": { "enum": ["later_merged", "later_split", "latest",
+                            null] },
+        "survival_seconds": { "type": ["number", "null"] },
+        "next_change": { "type": ["object", "null"],
+          "description": "首个改写该操作的后续 op 摘要；v0.1 不进一步约束" },
+        "checked_at": { "type": ["string", "null"] }
+      }
+    },
+    "process": {
+      "type": "object",
+      "description": "过程列：真实会话联动（无匹配会话时为 null 占位）。v0.1 的 4 个必填键不变，join 打通后追加可选键。",
+      "required": ["session_id", "human_decision", "human_note", "note"],
+      "additionalProperties": false,
+      "properties": {
+        "session_id": { "type": ["string", "null"] },
+        "human_decision": { "type": ["string", "null"] },
+        "human_note": { "type": ["string", "null"] },
+        "note": { "type": "string" },
+        "process_ref": {
+          "type": ["object", "null"],
+          "description": "指向过程记录：会话包目录/join 文件/关联方式与时钟"
+        },
+        "viewpoint_before": {
+          "type": ["object", "null"],
+          "description": "提交前最后一个真实视角摘要（join.context.viewpoint_before）"
+        },
+        "window": {
+          "type": ["object", "null"],
+          "description": "提交前后事件窗口（pre_s/post_s/n_events）"
+        },
+        "n_notes": { "type": ["integer", "null"] },
+        "n_multicuts": { "type": ["integer", "null"] },
+        "keyframes": {
+          "type": "array",
+          "description": "提交前后关键帧引用（shot_id/image_ref/capture_status/moment）",
+          "items": { "type": "object" }
+        }
+      }
+    },
+    "labels": {
+      "type": "object",
+      "description": "监督标签与用途提示",
+      "required": ["action", "outcome_state", "usage_hint"],
+      "additionalProperties": false,
+      "properties": {
+        "action": { "enum": ["merge", "split"] },
+        "outcome_state": { "enum": ["later_merged", "later_split",
+                                    "latest", null] },
+        "usage_hint": { "type": "string", "minLength": 1 }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "description": "五段来源标注（real/simulated/unknown + reason）。公开栈只读时 submit_execution 只能是 simulated；不得留空冒充 real。",
+      "additionalProperties": false,
+      "properties": {
+        "service_facts": { "$ref": "#/$defs/leg" },
+        "visual_assets": { "$ref": "#/$defs/leg" },
+        "client_process": { "$ref": "#/$defs/leg" },
+        "submit_execution": { "$ref": "#/$defs/leg" },
+        "join": { "$ref": "#/$defs/leg" }
+      }
+    }
+  },
+  "$defs": {
+    "leg": {
+      "type": "object",
+      "required": ["status", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "status": { "enum": ["real", "simulated", "unknown"] },
+        "reason": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

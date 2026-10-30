@@ -1,0 +1,12 @@
+# Neuromancer 运行依赖（2026-09-30 实机实测版本；macOS 14 + Python 3.11）
+# 安装：pip install -r requirements.txt
+# 浏览器自动化首次使用还需安装浏览器：
+#   python3 -m playwright install chromium
+neuroglancer>=2.41,<3
+caveclient>=8.1.0
+cloud-volume>=12.13
+numpy>=1.26
+Pillow>=10.2
+jsonschema>=4.19
+playwright>=1.63
+python-pptx>=1.0

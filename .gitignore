@@ -1,0 +1,33 @@
+# 采集产物：会话数据与生成的图片不入库
+# 但保留存放规则本身（否则新人不知道 results/ 里该有什么）
+# 注意：不能写 `results/`——父目录被忽略后，`!results/README.md` 不会生效。
+results/*
+!results/README.md
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# 系统
+.DS_Store
+
+# 凭据：写着 token / 密钥的笔记不入库
+cave token.md
+*token*.md
+*.secret
+.env
+
+# 本地打包产物
+neuromancer_*.zip
+
+# 现场验收输出
+onsite_report.json
+probe_report.json
+
+# 临时目录与办公软件锁文件
+.tmp/
+.~*
+~$*
