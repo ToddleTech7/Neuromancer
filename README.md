@@ -13,44 +13,44 @@ root id 关联。
 
 ---
 
-## 三道活
+## 核心功能
 
-打开 `python3 scripts/nx.py` 就是一个软件主页，四块：**开始 / 回放 / 看包 / 派生**。
+运行 `python3 scripts/nx.py` 会打开软件主页，包含**开始 / 回放 / 看包 / 派生**。
 
-| 干什么 | 在哪 | 产出 |
+| 功能 | 操作入口 | 产物 |
 |---|---|---|
-| **采集**一段真实操作 | 「开始」页填数据源 / 目录 / 名字 → 点开始采集 | 会话包（事件流 + 关键帧 PNG + 备注） |
-| **回放**任意时刻的画面 | 「回放」tab | 可拖时间轴的工作台（真 Neuroglancer） |
-| **派生**行为片段 / 关联 op log | 「派生」tab | `derived/*.jsonl` |
+| **采集**真实校对操作 | 「开始」页填写数据源、目录和会话名 → 开始采集 | 会话包（事件流 + 关键帧 PNG + 备注） |
+| **回放**指定时刻的画面 | 「回放」tab | 可拖时间轴的工作台（真 Neuroglancer） |
+| **派生**行为片段、关联服务端 op log | 「派生」tab | `derived/*.jsonl` |
 
-首页也可以直接看历史会话（事件数 / 时长 / 帧数），点「回放」切过去。
+首页列出历史会话及其事件数、时长和帧数，可直接切到回放。
 命令行照样能用：`nx.py collect` 是「开始采集」的同一条路。
 
-工作台是单窗口三 tab：**回放 / 看包 / 派生**，点按钮切换。采集按钮在顶栏。
+工作台是单窗口，顶部切换**回放 / 看包 / 派生**；采集按钮在顶栏。
 
-### 速查
+### 常用操作
 
-| 想干什么 | 命令 / 动作 |
+| 操作 | 命令 / 动作 |
 |---|---|
-| 录一段 | `python3 scripts/nx.py collect` |
-| 换个会话名 | `python3 scripts/nx.py collect --session-name 小鼠皮层_第3轮` |
-| 换存放位置（一次） | `python3 scripts/nx.py collect --out ~/neuro_data` |
-| 换存放位置（长期） | `export NM_SESSIONS=~/neuro_data`（collect / studio / pack / replay 全跟着走） |
-| 打开工作台（最新包） | `python3 scripts/nx.py` |
-| 打开指定包 | `python3 scripts/nx.py studio <包目录>` |
-| **随便看一眼** | 双击包里 `打开.html`（轨迹 + 全部事件，无需服务） |
-| 只重放不比对 | `python3 scripts/nx.py replay --seek-t 140` |
-| 整段长会话（允许相机校正） | `python3 scripts/nx.py replay --reanchor-gesture` |
-| 导出视频 | `python3 scripts/nx.py export --seek-t 140` |
-| 看包里有什么 | `python3 scripts/nx.py pack` |
-| 草稿丢了 | `python3 scripts/nx.py recover` |
-| 环境检查 | `python3 scripts/nx.py doctor`（依赖/浏览器/目录/端口） |
-| 校验包没坏 | `python3 scripts/nx.py verify-pack` |
-| 导出表格 | `python3 scripts/nx.py export-csv` |
+| 采集一段操作 | `python3 scripts/nx.py collect` |
+| 指定会话名 | `python3 scripts/nx.py collect --session-name 小鼠皮层_第3轮` |
+| 指定本次输出目录 | `python3 scripts/nx.py collect --out ~/neuro_data` |
+| 设置会话根目录 | `export NM_SESSIONS=~/neuro_data`（collect / studio / pack / replay 都从该目录读写） |
+| 打开工作台（最近会话） | `python3 scripts/nx.py` |
+| 打开指定会话包 | `python3 scripts/nx.py studio <包目录>` |
+| 离线打开轨迹与事件表 | 双击包里 `打开.html`（轨迹 + 全部事件，无需服务） |
+| 回放到指定时刻（不比对） | `python3 scripts/nx.py replay --seek-t 140` |
+| 整段长会话回放（可选相机校正） | `python3 scripts/nx.py replay --reanchor-gesture` |
+| 导出回放视频 | `python3 scripts/nx.py export --seek-t 140` |
+| 查看包结构、事件与完整性摘要 | `python3 scripts/nx.py pack` |
+| 从草稿恢复未保存会话 | `python3 scripts/nx.py recover` |
+| 检查运行环境与依赖 | `python3 scripts/nx.py doctor`（依赖/浏览器/目录/端口） |
+| 校验事件、备注与图片完整性 | `python3 scripts/nx.py verify-pack` |
+| 导出事件、片段与悬停表 | `python3 scripts/nx.py export-csv` |
 
 ---
 
-## 分钟上手
+## 快速开始
 
 ```bash
 # 一次性依赖
@@ -60,16 +60,16 @@ python3 -m playwright install chromium
 # 要跑离线自检/单测，再装开发依赖：
 # pip install -r requirements-dev.txt
 
-# ① 采集：自动开一个已注入的浏览器窗口（不用装扩展）
+# 采集：自动开一个已注入的浏览器窗口（不用装扩展）
 python3 scripts/nx.py collect
 #    窗口打开时**已经在录**，正常操作就行；左下角面板「打检查点 / 备注 / 结束并保存」
 #    收工：先点「结束并保存」，再关窗口（服务会自己退出）
 #    直接关窗口不保存，只会留草稿 —— 用 nx.py recover 找回
 
-# ② 看：打开工作台（真 NG + 可拖时间轴 + 右侧数据面板）
+# 查看：打开工作台（真 NG + 可拖时间轴 + 右侧数据面板）
 python3 scripts/nx.py
 
-# ③ 验：只靠输入事件把刚才那段重放一遍（逐段比对）
+# 验证：只靠输入事件把刚才那段重放一遍（逐段比对）
 python3 scripts/nx.py replay
 ```
 
@@ -77,7 +77,7 @@ python3 scripts/nx.py replay
 无需登录、无需 CAVE 权限。
 
 **回放判定**：位置偏差 ≤ 60 nm、选中集 / 层 / 布局一致；
-`rgb NCC` 是参考指标（>0.90 接近，不阻断），取捨见
+`rgb NCC` 是参考指标（>0.90 接近，不阻断），取舍见
 [已定决策：像素门](docs/已定决策.md)。
 
 ---
@@ -97,40 +97,40 @@ neuromancer/
 
 ## 文档地图
 
-### 想用起来（三篇）
+### 使用与能力
 
-| 文档 | 回答什么 |
+| 文档 | 内容 |
 |---|---|
-| [使用说明](docs/使用说明.md) | 三种部署怎么用、每种三步、产物在哪、怎么排错 |
-| [功能清单](docs/功能清单.md) | 能力矩阵：哪些能力、验了没有 |
-| [当前进度](docs/当前进度.md) | 每个功能做到哪一步（五档：已验 / 验一半 / 留口 / 计划 / 不做） |
+| [使用说明](docs/使用说明.md) | 安装与启动、采集与回放、落包位置、故障排查 |
+| [功能清单](docs/功能清单.md) | 功能范围、验证状态、能力边界 |
+| [当前进度](docs/当前进度.md) | 每项功能的状态、证据和缺口 |
 
-### 想改代码（四篇）
+### 实现与维护
 
-| 文档 | 回答什么 |
+| 文档 | 内容 |
 |---|---|
-| [设计说明](docs/设计说明.md) | 分层架构、五条不变量、模块边界、注入路线取舍 |
-| [数据格式](docs/数据格式.md) | 包结构、事件与字段字典、怎么读、已知坑 |
-| [docs/modules/](docs/modules/) | 六个模块各自的职责 / 接口 / 设计要点 / 验证 |
-| [scripts/README.md](scripts/README.md) | 全部代码文件按角色分组 |
+| [设计说明](docs/设计说明.md) | 分层、核心不变量、模块边界、注入方式 |
+| [数据格式](docs/数据格式.md) | 包结构、事件与字段字典、读取方式、已知限制 |
+| [docs/modules/](docs/modules/) | 各模块的职责、接口、设计要点与验证 |
+| [scripts/README.md](scripts/README.md) | 代码文件的角色分组索引 |
 
-### 按问题查
+### 按问题查找
 
 [目录](docs/目录.md) 是完整索引：私有 NG 接入、需求映射、
-已拍板的产品取舍、真机部署清单、逐日开发记录。
-当前实现的 bug 与下一步优先级见 [评审报告](docs/评审报告.md)；
-v1 发布门与现在能做的缺口见 [v1 发布清单](docs/v1发布清单.md)。
+产品取舍、真实环境部署清单、开发记录。
+已知问题与下一步优先级见 [评审报告](docs/评审报告.md)；
+发布检查项与当前缺口见 [v1 发布清单](docs/v1发布清单.md)。
 
 ---
 
-## 现状
+## 验证状态
 
-单元测试 **153**、采集 demo **40/40**（2026-10-30 复跑；pending/color mismatch 单列）、动作回放 **16/16**、
-真人会话回放 **分段 3/3**（整段 4/6；`--reanchor-gesture` 整段 6/6，标 reanchored）、recorder E2E **26/26**、join 夹具 **24/24**。
+离线测试、文档自检、采集 demo、动作回放、真人会话分段回放、recorder E2E 与 join 夹具均有通过记录；验证结果见[目录](docs/目录.md)。
+真人会话的默认纯输入整段回放受 wheel 动画漂移影响；按检查点分段可以稳定复现，`--reanchor-gesture` 提供可选的相机校正并在报告中标记。
 
 公开数据上已跑通完整链路：采集 → 落包 → 派生 → 回放 → 导出。
-真实 CAVE 现场的那一次录制还在等（见
-[部署与验证：待验证清单](docs/部署与验证.md) 的待验证清单）。
+真实 CAVE 现场录制仍待验证，检查项见
+[部署与验证：待验证清单](docs/部署与验证.md)。
 
 ---
 
@@ -140,7 +140,7 @@ v1 发布门与现在能做的缺口见 [v1 发布清单](docs/v1发布清单.md
 |---|---|
 | 渲染过程（tile / chunk / mip 级） | 采不到：页面内看不到 Worker 的请求，URL 只到 shard+mip。已拍板不做，见 [已定决策：渲染过程](docs/已定决策.md) |
 | 工具切换 | 本构建 `viewer.tool` 不存在；改用 DOM 读工具栏状态 |
-| 指针下的段 ID（`picked`） | 管道已通，真机值待验（[部署与验证：待验证清单 A1](docs/部署与验证.md)） |
+| 指针下的段 ID（`picked`） | 管道已通，真机值待验（[部署与验证：待验证清单](docs/部署与验证.md)） |
 | merge / split 提交 | 需要可写后端；公开数据只读 |
 | 回放环境 | 必须能访问同一份数据源 |
 
