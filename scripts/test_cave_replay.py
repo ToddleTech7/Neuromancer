@@ -87,6 +87,33 @@ class TestAttentionRows(unittest.TestCase):
         self.assertEqual(rows[1]['selected'], 'seg:2')
 
 
+    def test_visible_width_varies_with_nm_per_px(self):
+        pack = mini_pack(events=[
+            {'type': 'viewer.state-change', 't_wall': T0,
+             'viewpoint': {'position': [1, 2, 3], 'nm_per_px': {'x': 24, 'y': 24},
+                           'viewport': {'css_px': [1280, 740]}}},
+            {'type': 'viewer.state-change', 't_wall': T0 + 1000,
+             'viewpoint': {'position': [4, 5, 6],
+                           'nm_per_px': {'x': 39.720369, 'y': 39.720369},
+                           'viewport': {'css_px': [1280, 740]}}},
+        ])
+        rows = cr.attention_rows(pack['events'], T0)
+        self.assertEqual(rows[0]['view_nm'], 30720)
+        self.assertEqual(rows[1]['view_nm'], 50842)
+
+    def test_build_html_does_not_truncate_attention_rows(self):
+        events = [{'type': 'viewer.state-change', 't_wall': T0 + i * 1000,
+                   'viewpoint': {'position': [i, 0, 0],
+                                 'position_nm': [i, 0, 0],
+                                 'nm_per_px': {'x': 24, 'y': 24},
+                                 'viewport': {'css_px': [1280, 740]}}}
+                  for i in range(205)]
+        pack = mini_pack(events=events)
+        lines = [cr.event_line(e, T0) for e in events]
+        html = cr.build_html(pack, lines)
+        self.assertIn('(204, 0, 0)', html)
+
+
 class TestOpLine(unittest.TestCase):
     def test_op_line(self):
         rec = {'op_id': 9, 'op_type': 'merge',

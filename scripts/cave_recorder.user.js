@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         CAVE Recorder（Neuromancer）
+// @name         CAVE Recorder (Neuromancer)
 // @namespace    neuromancer.local
 // @version      0.9.0
 // @description  只读记录 Neuroglancer 会话：视角状态流/选择/鼠标/滚轮/按键/图层/关键帧/备注 + 状态与缺口 + 提交锚点（只观察 CAVE API 调用与回执），一键导出会话包。不修改任何请求/响应。
@@ -936,7 +936,9 @@
     if (msig !== R.last.mouse) {
       R.last.mouse = msig;
       if (mouse) emit('mouse_sample', {
-        position: mouse, state_id: R.stateId,
+        // 不要把整个对象塞进 position：旧实现造成
+        // position={position,page,picked...}，下游读不到 page/picked。
+        ...mouse, state_id: R.stateId,
       });
     }
     // 界面状态与外部 provider 也走同一个节拍：

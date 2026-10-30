@@ -184,6 +184,15 @@ class TestSessionPack(unittest.TestCase):
         self.assertFalse(list(self.base.glob('.tmp_*')))
         self.assertTrue(list(self.base.glob('.old_*')))
 
+    def test_legacy_focus_event_is_flattened(self):
+        events = [{'type': 'viewer.focus',
+                   'position': {'position': [1, 2, 3], 'page': [10, 20],
+                                'picked_miss': True}}]
+        csp._normalize_focus_events(events)
+        self.assertEqual(events[0]['position'], [1, 2, 3])
+        self.assertEqual(events[0]['page'], [10, 20])
+        self.assertTrue(events[0]['picked_miss'])
+
     def test_export_csv_has_three_tables(self):
         import csv
         import export_csv

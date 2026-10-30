@@ -444,7 +444,9 @@ def build_html(pack, lines, join_info=None):
             if len(pg) >= 2 and all(isinstance(v, (int, float)) for v in pg[:2]):
                 mouse_pts.append((pg[0], pg[1]))
 
-    att = attention_rows(pack['events'], t0, limit=200)
+    # 不截断：早期版本只取前 200 行，前 200 行恰好都在同一缩放档，
+    # 看起来会像“可见宽永远不变”。
+    att = attention_rows(pack['events'], t0)
     att_rows = ''.join(
         '<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>'
         % (r['t'],

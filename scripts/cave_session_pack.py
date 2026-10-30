@@ -80,6 +80,31 @@ def empty_pack():
     }
 
 
+def _normalize_focus_events(events):
+    """兼容旧 recorder 的 viewer.focus 嵌套结构。
+
+    旧实现 emit 的是 `position: {position, page, picked...}`；下游按
+    `position` 列表 + `page`/`picked` 顶层字段读，会把 page/picked 全丢掉。
+    新包写顶层；读旧包时在这里展开，不修改 events.jsonl 文件本身。
+    """
+    for e in events:
+        if not isinstance(e, dict):
+            continue
+        if e.get('type') not in ('viewer.focus', 'mouse_sample'):
+            continue
+        p = e.get('position')
+        if not isinstance(p, dict):
+            continue
+        if not any(k in p for k in ('position', 'page', 'picked', 'picked_miss')):
+            continue
+        for k in ('position', 'page', 'picked', 'picked_miss', 'picked_layer'):
+            if k in p:
+                e[k] = p[k]
+        if not isinstance(e.get('position'), (list, tuple)):
+            e['position'] = []
+    return events
+
+
 def load_session(path):
     """读会话包：支持 recorder 导出的 JSON，也支持已落盘的目录包。"""
     p = Path(path)
@@ -106,6 +131,7 @@ def load_session(path):
                 line = line.strip()
                 if line:
                     shots.append(json.loads(line))
+        _normalize_focus_events(events)
         pack = {
             'schema': manifest.get('pack_schema', PACK_SCHEMA),
             'source_schema': manifest.get('source_schema'),
@@ -128,6 +154,7 @@ def load_session(path):
     pack = json.loads(p.read_text('utf-8'))
     if not isinstance(pack, dict) or 'events' not in pack:
         raise SystemExit(f'不是有效的会话包: {path}')
+    _normalize_focus_events(pack.get('events') or [])
     return pack
 
 

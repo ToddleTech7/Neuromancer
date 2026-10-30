@@ -6,7 +6,7 @@
 
 ### 采集
 
-- 浏览器内旁路记录 pointer/wheel/key/state/checkpoint/keyframe/note。
+- 浏览器内旁路记录 pointer/wheel/key/state/checkpoint/keyframe/note；`viewer.focus` 的 `page`/`picked` 写在顶层，旧包读取时自动展开嵌套字段。
 - `--open` 自开浏览器；`--cdp` 接管已有 Chrome；`/save` 与 `/draft` 双端点。
 - 结束并保存会等待最后一张关键帧落进包。
 - 草稿 30 秒增量落盘；保存成功后删除草稿；同 session 重存在隐藏临时目录完整写入后备份旧包并整体切换。
