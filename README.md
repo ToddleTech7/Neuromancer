@@ -113,7 +113,6 @@ neuromancer/
 | [数据格式](docs/数据格式.md) | 包结构、事件与字段字典、读取方式、已知限制 |
 | [docs/modules/](docs/modules/) | 各模块的职责、接口、设计要点与验证 |
 | [scripts/README.md](scripts/README.md) | 代码文件的角色分组索引 |
-| [后端接入与缺口补齐](docs/后端接入与缺口补齐.md) | 后端接口、剩余缺口、阶段与联调验收 |
 
 ### 按问题查找
 
