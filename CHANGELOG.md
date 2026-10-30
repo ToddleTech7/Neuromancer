@@ -42,6 +42,7 @@
 ### 工具
 
 - 回放工作台改为白底浅色界面；中间 Neuroglancer 舞台保持黑底，避免影响图像判断。
+- 工作台鼠标点按录制视口缩放并夹在 iframe 内，不再因舞台比录制窗口小而跑到回放区域外。
 
 - `nx collect / studio / replay / export / pack / verify-pack / doctor / export-csv / recover`。
 - `export-csv` 导出 events/episodes/hover；`load_test_pack.py` 做合成大会话包压测。

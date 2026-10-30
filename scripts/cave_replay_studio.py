@@ -156,7 +156,7 @@ def build_timeline(pack, packdir):
                        'type': t,
                        'label': e.get('key') or e.get('code') or t})
     # 鼠标轨迹：工作台的 NG 在跨源 iframe 里，注不进去，只能在外壳页上
-    # 叠一个点，坐标用 iframe 内的页面像素（iframe 铺满、无缩放时可直接加偏移）。
+    # 叠一个点；坐标是录制页面的 CSS 像素，显示时按 iframe/录制视口缩放并夹紧。
     mouse = []
     for e in pack.get('events') or []:
         t = csp.ctype(e)
@@ -183,8 +183,29 @@ def build_timeline(pack, packdir):
         t_start = evs[0].get('t_wall') if evs else t0
     if isinstance(t_start, (int, float)):
         t0 = t_start
+    # 鼠标点位是录制页面的 CSS 像素（通常 1280×740）；工作台 iframe 的显示尺寸
+    # 可能更小，必须按录制视口缩放，否则红点会跑到 iframe 外面。
+    viewport = None
+    for e in pack.get('events') or []:
+        if csp.ctype(e) != 'session.start':
+            continue
+        css = (e.get('viewport') or {}).get('css_px') or []
+        if (len(css) >= 2 and isinstance(css[0], (int, float))
+                and isinstance(css[1], (int, float))):
+            viewport = [float(css[0]), float(css[1])]
+            break
+    if viewport is None:
+        for e in pack.get('events') or []:
+            if csp.ctype(e) not in STATE_TYPES:
+                continue
+            css = ((e.get('viewpoint') or {}).get('viewport') or {}).get('css_px') or []
+            if (len(css) >= 2 and isinstance(css[0], (int, float))
+                    and isinstance(css[1], (int, float))):
+                viewport = [float(css[0]), float(css[1])]
+                break
     return {
         'session': Path(packdir).name if packdir else '(还没有会话)',
+        'viewport': viewport,
         'pack': str(packdir) if packdir else '',
         't0': t0,
         't1': max([x['t_wall'] for x in snaps] or [t0]),
@@ -884,8 +905,15 @@ function updateMouse(t) {
   }
   if (!best) best = arr[0];
   const box = document.getElementById('ng').getBoundingClientRect();
-  dot.style.left = (box.left + best.x) + 'px';
-  dot.style.top = (box.top + best.y) + 'px';
+  if (!box.width || !box.height) { dot.style.display = 'none'; return; }
+  const vp = TL.viewport || [1280, 740];
+  const sx = box.width / Math.max(1, vp[0]);
+  const sy = box.height / Math.max(1, vp[1]);
+  // 夹到 iframe 内：记录点可能落在录制页的侧栏/工具栏，不能直接加偏移。
+  const x = Math.max(0, Math.min(box.width, best.x * sx));
+  const y = Math.max(0, Math.min(box.height, best.y * sy));
+  dot.style.left = (box.left + x) + 'px';
+  dot.style.top = (box.top + y) + 'px';
   dot.style.display = 'block';
   dot.title = 't=' + best.t + 's (' + Math.round(best.x) + ', ' +
               Math.round(best.y) + ')';
