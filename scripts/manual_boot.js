@@ -27,19 +27,23 @@
     + 'background:rgba(17,20,26,.93);color:#e8eaed;'
     + 'font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;'
     + 'padding:10px 12px;border-radius:10px;box-shadow:0 6px 22px rgba(0,0,0,.5);'
-    + 'min-width:250px;'
+    + 'box-sizing:border-box;width:330px;min-width:250px;max-width:min(520px,calc(100vw - 24px));'
+    + 'max-height:80vh;overflow:auto;resize:both;'
     // 面板要能选文字复制：宿主页面常带 user-select:none，这里强制覆盖
     + 'user-select:text!important;-webkit-user-select:text!important;'
-  bar.innerHTML = '<div style="font-weight:700;margin-bottom:4px">CAVE 采集</div>'
-    + '<div id="cs" style="white-space:pre-wrap">等待页面…</div>'
-    + '<div style="margin-top:8px;display:flex;gap:6px">'
+  bar.innerHTML = '<div id="hdr" style="display:flex;align-items:center;'
+    + 'gap:8px;cursor:move;user-select:none;white-space:nowrap">'
+    + '<span style="font-weight:700">CAVE 采集</span>'
+    + '<span id="mini" style="color:#9aa0a6;font-size:11px;margin-left:auto;'
+    + 'overflow:hidden;text-overflow:ellipsis;max-width:150px">等待页面…</span>'
+    + '<button id="min" title="最小化面板" style="padding:1px 7px;line-height:1.4">—</button></div>'
+    + '<div id="quickrow" style="display:flex;gap:6px;margin-top:8px">'
     + '<button id="ck">打检查点</button>'
     + '<button id="nt">备注</button>'
     + '<button id="sv">结束并保存</button></div>'
-    + '<div id="cm" style="margin-top:6px;color:#9aa0a6;max-width:330px;'
-    + 'white-space:pre-wrap;user-select:text!important;'
-    + '-webkit-user-select:text!important;cursor:text"></div>'
-    // 设置：采集粒度/订阅/上限。改完写 localStorage，下次打开自动生效。
+    + '<div id="panel-body">'
+    + '<div style="margin-top:8px;color:#9aa0a6">'
+    + '<div id="cs" style="white-space:pre-wrap">等待页面…</div></div>'
     + '<div style="margin-top:8px;display:flex;gap:6px">'
     + '<button id="cfg">设置</button>'
     + '<button id="diag">诊断</button>'
@@ -65,16 +69,143 @@
     + '<option value="500000">50 万</option></select><br>'
     + '<button id="c_save" style="margin-top:4px">保存并应用</button>'
     + '</div>'
-    // 备注用页面内输入框，不用 window.prompt：内嵌/自动化浏览器会把 prompt
-    // 默认 dismiss，人看到的就是“点了一下又没了”，文本永远存不进去。
+    + '<div id="cm" style="margin-top:6px;color:#9aa0a6;max-width:330px;'
+    + 'white-space:pre-wrap;user-select:text!important;'
+    + '-webkit-user-select:text!important;cursor:text"></div>'
     + '<div id="nw" style="display:none;margin-top:6px">'
     + '<input id="ni" placeholder="一句话理由，回车记下" '
     + 'style="box-sizing:border-box;width:100%;font:12px ui-monospace,monospace;'
     + 'background:#0f1216;color:#e8eaed;border:1px solid #3a4048;border-radius:6px;'
     + 'padding:4px 6px">'
     + '<div style="margin-top:4px;display:flex;gap:6px">'
-    + '<button id="nok">记下</button><button id="nno">取消</button></div></div>';
+    + '<button id="nok">记下</button><button id="nno">取消</button></div></div>'
+    + '</div>';
   document.body.appendChild(bar);
+
+  // 面板布局：可拖动、可缩放、可最小化为快捷按钮条。
+  // 布局只写 localStorage，不影响采集数据；刷新后恢复上次位置/大小/折叠状态。
+  const LAYOUT_KEY = 'cave_panel_layout_v1';
+  const hdr = bar.querySelector('#hdr');
+  const mini = bar.querySelector('#mini');
+  const minBtn = bar.querySelector('#min');
+  const panelBody = bar.querySelector('#panel-body');
+  let layout = {};
+  try { layout = JSON.parse(localStorage.getItem(LAYOUT_KEY) || '{}') || {}; }
+  catch (e) { layout = {}; }
+  let expandedW = isFinite(layout.width) ? layout.width : null;
+  let expandedH = isFinite(layout.height) ? layout.height : null;
+
+  function clampBar() {
+    const r = bar.getBoundingClientRect();
+    const maxL = Math.max(4, window.innerWidth - r.width - 4);
+    const maxT = Math.max(4, window.innerHeight - r.height - 4);
+    let l = parseFloat(bar.style.left);
+    let t = parseFloat(bar.style.top);
+    if (!isFinite(l)) l = r.left;
+    if (!isFinite(t)) t = r.top;
+    bar.style.left = Math.min(Math.max(4, l), maxL) + 'px';
+    bar.style.top = Math.min(Math.max(4, t), maxT) + 'px';
+    bar.style.bottom = 'auto';
+  }
+
+  function saveLayout() {
+    const r = bar.getBoundingClientRect();
+    const compact = bar.classList.contains('compact');
+    if (!compact) {
+      expandedW = Math.round(r.width);
+      expandedH = Math.round(r.height);
+    }
+    layout = {
+      compact: compact,
+      left: Math.round(r.left), top: Math.round(r.top),
+      width: expandedW, height: expandedH,
+    };
+    try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout)); } catch (e) {}
+  }
+
+  function applyLayout() {
+    // 第一次打开默认收成快捷条，避免左下角挡住视野；展开后记在本地。
+    if (layout.compact || !Object.keys(layout).length) bar.classList.add('compact');
+    if (isFinite(layout.left) && isFinite(layout.top)) {
+      bar.style.left = layout.left + 'px';
+      bar.style.top = layout.top + 'px';
+      bar.style.bottom = 'auto';
+    }
+    if (isFinite(expandedW)) bar.style.width = expandedW + 'px';
+    if (!layout.compact && isFinite(expandedH)) bar.style.height = expandedH + 'px';
+    minBtn.textContent = bar.classList.contains('compact') ? '▢' : '—';
+    minBtn.title = bar.classList.contains('compact') ? '展开面板' : '最小化面板';
+    if (bar.classList.contains('compact')) bar.style.height = 'auto';
+  }
+
+  function toggleCompact() {
+    const compact = !bar.classList.contains('compact');
+    bar.classList.toggle('compact', compact);
+    if (compact) bar.style.height = 'auto';
+    else if (isFinite(expandedH)) bar.style.height = expandedH + 'px';
+    minBtn.textContent = compact ? '▢' : '—';
+    minBtn.title = compact ? '展开面板' : '最小化面板';
+    saveLayout();
+  }
+
+  minBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    toggleCompact();
+  });
+
+  // 拖动标题栏移动面板；按钮区域不启动拖动。
+  let drag = null;
+  hdr.addEventListener('pointerdown', function (e) {
+    if (e.button !== 0 || e.target.closest('button')) return;
+    const r = bar.getBoundingClientRect();
+    drag = {dx: e.clientX - r.left, dy: e.clientY - r.top};
+    bar.style.left = r.left + 'px';
+    bar.style.top = r.top + 'px';
+    bar.style.bottom = 'auto';
+    try { hdr.setPointerCapture(e.pointerId); } catch (err) {}
+    e.preventDefault();
+  });
+  hdr.addEventListener('pointermove', function (e) {
+    if (!drag) return;
+    bar.style.left = (e.clientX - drag.dx) + 'px';
+    bar.style.top = (e.clientY - drag.dy) + 'px';
+    clampBar();
+  });
+  ['pointerup', 'pointercancel'].forEach(function (ev) {
+    hdr.addEventListener(ev, function () {
+      if (!drag) return;
+      drag = null;
+      saveLayout();
+    });
+  });
+
+  window.addEventListener('resize', clampBar);
+  applyLayout();
+  if (typeof ResizeObserver === 'function') {
+    let rt = null;
+    const ro = new ResizeObserver(function () {
+      if (bar.dataset.uiReady !== '1' || bar.classList.contains('compact')) return;
+      clearTimeout(rt);
+      rt = setTimeout(saveLayout, 180);
+    });
+    ro.observe(bar);
+  }
+
+  // 原面板在左下角；最小化后只保留快捷按钮条。
+  const style = document.createElement('style');
+  style.textContent = 'div[data-cave-ui] #panel-body{display:block}'
+    + 'div[data-cave-ui].compact #panel-body{display:none}'
+    + 'div[data-cave-ui].compact #mini{max-width:120px}'
+    + 'div[data-cave-ui] button{font:inherit;background:#2c323b;color:#e8eaed;'
+    + 'border:1px solid #4b535e;border-radius:6px;padding:2px 7px;cursor:pointer}'
+    + 'div[data-cave-ui] button:disabled{opacity:.5;cursor:default}'
+    + 'div[data-cave-ui] select{background:#0f1216;color:#e8eaed;'
+    + 'border:1px solid #3a4048;border-radius:4px}'
+    + 'div[data-cave-ui] #hdr button{font:inherit;padding:1px 7px}';
+  document.head.appendChild(style);
+  // 等布局生效后再让 ResizeObserver 记录手动缩放
+  bar.dataset.uiReady = '1';
+
   const cs = bar.querySelector('#cs');
   const cfgBox = bar.querySelector('#cfgbox');
   const cm = bar.querySelector('#cm');
@@ -82,7 +213,7 @@
   // 面板内部的事件不要冒泡出去：视口那边会在 document 上拦 pointerdown/mousedown，
   // 不挡住的话在面板里拖选文字会变成拖画布，选不上也就复制不了。
   // 注意用冒泡阶段（第三个参数 false）：capture 阶段停会连自己按钮都收不到事件
-  ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click',
+  ['pointerdown', 'mousedown', 'pointermove', 'pointerup', 'mouseup', 'click',
    'dblclick', 'selectstart'].forEach(function (ev) {
     bar.addEventListener(ev, function (e) { e.stopPropagation(); }, false);
   });
@@ -157,6 +288,8 @@
   function setSaving(on, text) {
     saving = !!on;
     if (text != null) cm.textContent = text;
+    if (text != null && mini) mini.textContent = text.replace(/\n/g, ' ').slice(0, 80);
+    if (!on && saved && mini) mini.textContent = '已保存';
     svBtn.disabled = saving || saved;
   }
 
@@ -197,6 +330,11 @@
     let st = {};
     try { st = R.status() || {}; } catch (e) {}
     if (svBtn) svBtn.disabled = saved || saving;
+    if (mini) {
+      mini.textContent = (saved ? '已保存' : (st.recording ? '录制中' : '已停止'))
+        + ' · 事件 ' + (st.events == null ? '?' : st.events)
+        + ' · 图 ' + (st.shots == null ? '?' : st.shots);
+    }
     const ndrop = (st.dropped || 0) + (st.checkpoint_dropped || 0);
     const bm = st.shots_by_moment || {};
     const ckTotal = bm.checkpoint || 0;
@@ -267,6 +405,7 @@
 
   bar.querySelector('#nt').onclick = function () {
     const R = ready(); if (!R) return;
+    if (bar.classList.contains('compact')) toggleCompact();
     noteShow(nw.style.display === 'none');
   };
   bar.querySelector('#nok').onclick = noteCommit;
