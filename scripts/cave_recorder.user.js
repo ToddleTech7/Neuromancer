@@ -118,6 +118,8 @@
                            // 事件上限（设置面板可调；默认 50 万 ≈ 10 小时）
                            max_events: 500000,
                            keyframe_on_checkpoint: false,
+                           // 备注时自动补一张关键帧，备注和画面一一对应
+                           note_keyframe: true,
                            // 复刻（R2）的关键：每个状态变化都附完整 state。
                            // 实测约 0.5 KB/次（比摘要还小），一小时 1–2 MB。
                            full_state_on_change: true,
@@ -2231,7 +2233,7 @@
             paint_colored: contentOut ? contentOut.colored : null,
           });
           bump('shot'); updateUI();
-          resolve({ ok: ok, w: c.width, h: c.height, note: note,
+          resolve({ ok: ok, shot_id: shotId, w: c.width, h: c.height, note: note,
                     status: status, via: via });
         };
         if (!longEnough) { done(false); return; }
@@ -2439,11 +2441,25 @@
     let vp = null;
     try { vp = extractViewpoint(); } catch (e) { /* ignore */ }
     const noteId = 'note_' + (R.notes.length + 1);
-    R.notes.push({
+    const note = {
       note_id: noteId, t_wall: wall(), text: text,
       state_id: R.stateId, viewpoint: vp ? vp.vp : null,
-    });
+    };
+    R.notes.push(note);
     emit('note', { text: text, note_id: noteId, state_id: R.stateId });
+    // 备注和画面绑定：默认补一张 note 关键帧，失败不影响备注本身。
+    if (R.config.note_keyframe !== false) {
+      try {
+        captureShot({moment: 'note', detail: {note_id: noteId}}).then(
+          function (r) {
+            // 即使这张是 blank_readback/painted_partial，也保留 shot_id：
+            // 备注至少能指向“哪一次拍摄失败/未画完”，不能被当成没有图。
+            if (r && r.shot_id) note.shot_id = r.shot_id;
+          },
+          function () { /* fail-open */ });
+      } catch (e) { /* fail-open */ }
+    }
+    return note;
   }
 
   // 能力声明：直接回答“哪些字段拿到了、哪些不能”。私有 fork 接入后
@@ -2464,6 +2480,7 @@
       draft_ms: R.config.draft_ms,
       max_events: R.config.max_events,
       keyframe_on_checkpoint: !!R.config.keyframe_on_checkpoint,
+      note_keyframe: !!R.config.note_keyframe,
       full_state_on_change: !!R.config.full_state_on_change,
       // “算画完”的规则随数据走：回放端读同一份参数，不各写一套
       keyframe_paint: paintRule(),
@@ -2531,6 +2548,7 @@
       note: s.note, capture_status: s.capture_status,
       readback_via: s.readback_via || null,
       moment: s.moment, request_id: s.request_id, state_id: s.state_id,
+      detail: s.detail || null,
       state_sha: s.state_sha || null,
       state_in_stream: !!s.state_in_stream,
       state_age_ms: (s.state_age_ms === undefined ? null : s.state_age_ms),
@@ -2759,6 +2777,9 @@
       if (dfm !== null) next.draft_ms = dfm;
       if ('keyframe_on_checkpoint' in patch) {
         next.keyframe_on_checkpoint = !!patch.keyframe_on_checkpoint;
+      }
+      if ('note_keyframe' in patch) {
+        next.note_keyframe = !!patch.note_keyframe;
       }
       if ('full_state_on_change' in patch) {
         next.full_state_on_change = !!patch.full_state_on_change;

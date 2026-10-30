@@ -311,5 +311,38 @@ class TestHover(unittest.TestCase):
         self.assertTrue(any('不推断' in c for c in h['caveats']))
 
 
+
+class TestDerivedFields(unittest.TestCase):
+    def test_hover_and_selected_are_separate(self):
+        evs = [ev(1, 0, 'session_start'),
+               state(2, 100, [0, 0, 0]),
+               ev(3, 200, 'selection_sample',
+                  selection={'autoseg': {'count': 1, 'ids': ['111']}}),
+               ev(4, 300, 'state_sample',
+                  state={'position': [0, 0, 0],
+                         'layers': [{'name': 'autoseg', 'type': 'segmentation',
+                                     'segments': ['!222', '333']}]}),
+               ev(5, 400, 'session_stop')]
+        res = cep.derive_episodes({'events': evs})
+        ep = res['episodes'][0]
+        self.assertEqual(ep['hover_selections'],
+                         [{'autoseg': {'count': 1, 'ids': ['111']}}])
+        self.assertEqual(ep['selections'], ep['hover_selections'])
+        self.assertEqual(ep['selected_segments'][-1]['segments'],
+                         {'autoseg': ['222', '333']})
+
+    def test_derived_manifest_has_source_hash(self):
+        import json
+        import tempfile
+        from pathlib import Path
+        evs = [ev(1, 0, 'session_start'), ev(2, 100, 'session_stop')]
+        res = cep.derive_episodes({'events': evs, 'session_id': 's1'})
+        with tempfile.TemporaryDirectory() as tmp:
+            cep.write_derived(res, Path(tmp))
+            man = json.loads((Path(tmp) / 'manifest.json').read_text('utf-8'))
+            self.assertEqual(man['source']['session_id'], 's1')
+            self.assertEqual(len(man['source']['events_sha256']), 64)
+
+
 if __name__ == '__main__':
     unittest.main()

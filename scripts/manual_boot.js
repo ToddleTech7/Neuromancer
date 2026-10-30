@@ -59,6 +59,7 @@
     + '<option value="2000">2000ms</option></select><br>'
     + '<label><input type="checkbox" id="c_watch"> 选中集/图层变化即时记（订阅）</label><br>'
     + '<label><input type="checkbox" id="c_kf"> 每个检查点拍照</label><br>'
+    + '<label><input type="checkbox" id="c_note"> 备注时拍照（关键帧）</label><br>'
     + '<label><input type="checkbox" id="c_skf"> 语义关键帧（缩放/图层/选中/停留）</label><br>'
     + '停留 <select id="c_dwell">'
     + '<option value="0">关</option><option value="3000">3s</option>'
@@ -311,9 +312,11 @@
           ? {move_sample_ms: saved.move_sample_ms,
              keyframe_on_checkpoint: saved.keyframe_on_checkpoint !== undefined
                ? saved.keyframe_on_checkpoint : true,
+             note_keyframe: saved.note_keyframe !== undefined
+               ? saved.note_keyframe : true,
              keyframe_paint_ms: 3000}
           : {move_sample_ms: 0, keyframe_on_checkpoint: true,
-             keyframe_paint_ms: 3000});
+             note_keyframe: true, keyframe_paint_ms: 3000});
       } catch (e) {}
       R.start();
       try { configUI(R); } catch (e) {}
@@ -360,6 +363,7 @@
     q('#c_max').value = String(R.config.max_events);
     q('#c_watch').checked = !!R.config.semantic_watch;
     q('#c_kf').checked = !!R.config.keyframe_on_checkpoint;
+    q('#c_note').checked = R.config.note_keyframe !== false;
     q('#c_skf').checked = !!R.config.semantic_keyframe;
     q('#c_dwell').value = String(R.config.dwell_ms);
     q('#cfg').onclick = () => {
@@ -372,6 +376,7 @@
         max_events: Number(q('#c_max').value),
         semantic_watch: q('#c_watch').checked,
         keyframe_on_checkpoint: q('#c_kf').checked,
+        note_keyframe: q('#c_note').checked,
         semantic_keyframe: q('#c_skf').checked,
         dwell_ms: Number(q('#c_dwell').value),
       };

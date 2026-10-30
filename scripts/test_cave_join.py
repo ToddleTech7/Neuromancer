@@ -98,6 +98,7 @@ class TestJoinSession(unittest.TestCase):
         self.assertEqual(j[43]['match_method'], 'anchor-estimated')
         self.assertEqual(len(res['summary']['unmatched_ops']), 1)
         self.assertEqual(res['summary']['clock']['basis'], 'op-anchor')
+        self.assertEqual(len(res['summary']['source']['events_sha256']), 64)
         # 未匹配 op 的原因字段存在
         self.assertIn('reason', res['summary']['unmatched_ops'][0])
 

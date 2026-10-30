@@ -193,6 +193,14 @@ class TestSessionPack(unittest.TestCase):
         self.assertEqual(events[0]['page'], [10, 20])
         self.assertTrue(events[0]['picked_miss'])
 
+    def test_shot_detail_is_persisted(self):
+        p = _pack()
+        p['shots'][0]['detail'] = {'note_id': 'note_1'}
+        d, _ = csp.pack_session(p, self.base, with_html=False)
+        rows = [json.loads(x) for x in
+                (d / 'client' / 'shots' / 'shots.jsonl').read_text('utf-8').splitlines()]
+        self.assertEqual(rows[0]['detail'], {'note_id': 'note_1'})
+
     def test_export_csv_has_three_tables(self):
         import csv
         import export_csv

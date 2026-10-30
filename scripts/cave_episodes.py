@@ -21,6 +21,8 @@ D14 空闲阈值都未决）。放进在线采集会污染原始事件，而且�
 """
 
 import argparse
+import datetime as dt
+import hashlib
 import json
 import re
 import statistics
@@ -401,6 +403,38 @@ def _sampling(pack):
     return dict(cfg or {})
 
 
+def _events_sha256(pack):
+    h = hashlib.sha256()
+    for e in pack.get('events') or []:
+        h.update(json.dumps(e, ensure_ascii=False, sort_keys=True).encode('utf-8'))
+        h.update(b'\n')
+    return h.hexdigest()
+
+
+def _selected_segments(evs):
+    """从完整 state 里抽出选中集变化（不是 selection.change 的悬停）。"""
+    out, prev = [], None
+    for e in evs:
+        if ctype(e) not in ('viewer.state-change', 'viewer.checkpoint'):
+            continue
+        st = e.get('state') or {}
+        segs = {}
+        for lay in st.get('layers') or []:
+            if 'segmentation' not in str(lay.get('type') or '').lower():
+                continue
+            name = lay.get('name')
+            ids = [re.sub(r'^!', '', str(x)) for x in (lay.get('segments') or [])]
+            if name and ids:
+                segs[str(name)] = ids
+        sig = json.dumps(segs, sort_keys=True) if segs else '{}'
+        if sig == prev:
+            continue
+        prev = sig
+        out.append({'t_wall': e.get('t_wall'), 'state_id': e.get('state_id'),
+                    'segments': segs})
+    return out
+
+
 def derive_episodes(pack, policy=None):
     """PP07：把整段会话切成 observation episode。
 
@@ -412,6 +446,8 @@ def derive_episodes(pack, policy=None):
     events = [e for e in (pack.get('events') or [])
               if isinstance(e.get('seq'), int)]
     events.sort(key=lambda e: e['seq'])
+    note_by_id = {n.get('note_id'): n for n in (pack.get('notes') or [])
+                  if isinstance(n, dict) and n.get('note_id')}
     if not events:
         return {'policy_version': POLICY['version'], 'episodes': [],
                 'sampling': _sampling(pack), 'normalized': normalize([])}
@@ -468,10 +504,22 @@ def derive_episodes(pack, policy=None):
             'gestures': _gesture_summary(evs),
             'hover': _hover_summary(evs, t1),
             'idle_segments': _idle_for(idle_all, t0, t1),
+            # 这两个不是同一种东西：
+            #   hover_selections = 鼠标悬停到的段（selection.change）
+            #   selected_segments = 真正的选中集（完整 state.layers[].segments）
+            'hover_selections': [e.get('selection') for e in evs
+                                 if ctype(e) == 'selection.change'],
+            # 兼容旧读者；新代码请读 hover_selections
             'selections': [e.get('selection') for e in evs
                            if ctype(e) == 'selection.change'],
-            'notes': [{'t_wall': e.get('t_wall'), 'text': e.get('text')}
-                      for e in evs if ctype(e) == 'evidence.bookmark'],
+            'selected_segments': _selected_segments(evs),
+            'notes': [
+                dict({'t_wall': e.get('t_wall'), 'text': e.get('text')},
+                     **{k: note_by_id.get(e.get('note_id'), {}).get(k)
+                        for k in ('note_id', 'state_id', 'viewpoint', 'shot_id')
+                        if note_by_id.get(e.get('note_id'), {}).get(k) is not None})
+                for e in evs if ctype(e) == 'evidence.bookmark'
+            ],
             **_no_edit_disposition(evs),
             'policy_version': POLICY['version'],
             # 允许重叠：v1 false；下游不得据此假定互斥
@@ -482,6 +530,9 @@ def derive_episodes(pack, policy=None):
     return {
         'policy_version': POLICY['version'],
         'policy': dict(POLICY),
+        'source': {'session_id': pack.get('session_id'),
+                   'events_sha256': _events_sha256(pack),
+                   'n_events': len(pack.get('events') or [])},
         # D10：把输入的采样粒度写进派生结果。
         # 不写的话，下游会把 50ms 采样过的轨迹当成全量轨迹做速度/加速度分析。
         'sampling': _sampling(pack),
@@ -516,6 +567,14 @@ def write_derived(result, out_dir):
         json.dumps({'policy_version': result['policy_version'],
                     'policy': result['policy']},
                    ensure_ascii=False, indent=1), encoding='utf-8')
+    (out_dir / 'manifest.json').write_text(
+        json.dumps({
+            'policy_version': result['policy_version'],
+            'source': result.get('source') or {},
+            'generated_at_utc': dt.datetime.now(dt.timezone.utc).isoformat(),
+            'files': ['normalized.json', 'episodes.jsonl', 'hover.json',
+                      'episode_policy.json'],
+        }, ensure_ascii=False, indent=1), encoding='utf-8')
     return ep_path
 
 

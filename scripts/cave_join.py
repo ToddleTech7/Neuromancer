@@ -40,6 +40,7 @@ root_seen 证据因此是下界；root 匹配只作辅助证据，不单独决�
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 import statistics
 from datetime import datetime, timezone
@@ -283,6 +284,14 @@ def _health(pack):
     return out
 
 
+def _events_sha256(pack):
+    h = hashlib.sha256()
+    for e in pack.get('events') or []:
+        h.update(json.dumps(e, ensure_ascii=False, sort_keys=True).encode('utf-8'))
+        h.update(b'\n')
+    return h.hexdigest()
+
+
 def join_session(pack, ops, pre_s=15.0, post_s=3.0):
     ops_by_id = {}
     for op in ops:
@@ -368,6 +377,9 @@ def join_session(pack, ops, pre_s=15.0, post_s=3.0):
 
     summary = {
         'session_id': session_id,
+        'source': {'session_id': session_id,
+                   'events_sha256': _events_sha256(pack),
+                   'n_events': len(pack.get('events') or [])},
         'generated_at': datetime.now(timezone.utc).isoformat(),
         'session_span': {'start_wall_ms': t0, 'end_wall_ms': t1},
         'clock': {'offset_ms': clock['offset_ms'],

@@ -394,7 +394,7 @@ def _pack_session_into(d, backup, sid, pack, legs, reasons,
                 'state_id', 'state_sha', 'state_in_stream', 'state_age_ms',
                 'state_partial', 'state_truncated', 'paint_settled', 'paint_stable',
                 'paint_changed', 'paint_waited_ms', 'paint_timed_out',
-                'content', 'state')}
+                'content', 'state', 'detail')}
         row['source'] = s.get('source') or 'recorder_canvas_readback'
         data_url = s.get('dataURL')
         rel = None

@@ -1444,7 +1444,9 @@ class Handler(BaseHTTPRequestHandler):
         kind = body.get('kind') or 'episodes'
         pack = body.get('pack') or str(self.studio.packdir)
         if kind == 'join':
-            cmd = [sys.executable, str(HERE / 'cave_join.py'), pack]
+            # 和 episodes 一致：派生结果跟着包走，不写到全局 results/joined。
+            cmd = [sys.executable, str(HERE / 'cave_join.py'), pack,
+                   '--out', str(Path(pack) / 'derived')]
             ops = HERE.parent / 'results' / 'cave_watch' / 'ops.jsonl'
             if ops.exists():
                 cmd += ['--ops', str(ops)]
