@@ -1,6 +1,6 @@
 # Neuromancer 独立项目入口
 
-本目录是独立的人工连接组校对过程采集项目。上层 CaveCopilot 的模型、候选扫描、训练门槛和任务排期不属于本项目；不要迁移或修改其 Agent 系统。
+本目录是独立的人工连接组校对过程采集项目。上层项目的模型、候选扫描、训练门槛和任务排期不属于本项目；不要迁移或修改其 Agent 系统。
 
 ## 接手顺序
 
@@ -31,7 +31,7 @@
 - 缺少依赖可以安装并记录，下载慢时使用可信镜像；不要因为缺库绕开必要功能。
 - 本地和远程可能有更新，覆盖前先检查目标。同步成功才报告成功；不覆盖会话数据。
 
-原型测试：在本目录运行 `python3 -m pytest scripts/ -q`（当前 **141 项**：join/derive/replay/replay_state/回放恢复点与图↔state 绑定/动作有效性地板/op_watcher/cb2_align/validate_samples/回放复位/选中集回放/悬停派生）。
+原型测试：在本目录运行 `python3 -m pytest scripts/ -q`（当前 **153 项**：join/derive/replay/replay_state/回放恢复点与图↔state 绑定/动作有效性地板/op_watcher/validate_samples/回放复位/选中集回放/悬停派生）。
 回放相关的四道硬门：`scripts/verify_replay_reset.py`（缺省即默认的复位，本地无网）、
 `scripts/verify_replay_fidelity.py`（重放 state：闭环对齐，不猜等待时间）、
 `scripts/verify_action_replay.py`（重放**输入事件**：拖/缩/点逐段比对，需外网）

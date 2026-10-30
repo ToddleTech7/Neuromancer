@@ -8,6 +8,9 @@
 服务端 CAVE 操作日志是编辑的权威记录，本项目记录**过程**——两边按会话 / 时间戳 /
 root id 关联。
 
+> 状态：`v1.0.0` 研究预览版。单用户、本机或 SSH 隧道使用；真实 CAVE 现场仍在验证。
+> 采集器只读，不改变工作人员视野、选择或分割。
+
 ---
 
 ## 三道活
@@ -41,13 +44,13 @@ root id 关联。
 | 导出视频 | `python3 scripts/nx.py export --seek-t 140` |
 | 看包里有什么 | `python3 scripts/nx.py pack` |
 | 草稿丢了 | `python3 scripts/nx.py recover` |
-| 环境不对 | `python3 scripts/nx.py doctor`（依赖/浏览器/目录/端口） |
+| 环境检查 | `python3 scripts/nx.py doctor`（依赖/浏览器/目录/端口） |
 | 校验包没坏 | `python3 scripts/nx.py verify-pack` |
 | 导出表格 | `python3 scripts/nx.py export-csv` |
 
 ---
 
-## 5 分钟上手
+## 分钟上手
 
 ```bash
 # 一次性依赖
@@ -75,7 +78,7 @@ python3 scripts/nx.py replay
 
 **回放判定**：位置偏差 ≤ 60 nm、选中集 / 层 / 布局一致；
 `rgb NCC` 是参考指标（>0.90 接近，不阻断），取捨见
-[已定决策 §8](docs/已定决策.md)。
+[已定决策：像素门](docs/已定决策.md)。
 
 ---
 
@@ -127,7 +130,7 @@ v1 发布门与现在能做的缺口见 [v1 发布清单](docs/v1发布清单.md
 
 公开数据上已跑通完整链路：采集 → 落包 → 派生 → 回放 → 导出。
 真实 CAVE 现场的那一次录制还在等（见
-[DEPLOYMENT §4.5](docs/部署与验证.md) 的待验证清单）。
+[部署与验证：待验证清单](docs/部署与验证.md) 的待验证清单）。
 
 ---
 
@@ -135,9 +138,9 @@ v1 发布门与现在能做的缺口见 [v1 发布清单](docs/v1发布清单.md
 
 | 项 | 现状 |
 |---|---|
-| 渲染过程（tile / chunk / mip 级） | 采不到：页面内看不到 Worker 的请求，URL 只到 shard+mip。已拍板不做，见 [已定决策 §7](docs/已定决策.md) |
+| 渲染过程（tile / chunk / mip 级） | 采不到：页面内看不到 Worker 的请求，URL 只到 shard+mip。已拍板不做，见 [已定决策：渲染过程](docs/已定决策.md) |
 | 工具切换 | 本构建 `viewer.tool` 不存在；改用 DOM 读工具栏状态 |
-| 指针下的段 ID（`picked`） | 管道已通，真机值待验（[DEPLOYMENT §4.5 A1](docs/部署与验证.md)） |
+| 指针下的段 ID（`picked`） | 管道已通，真机值待验（[部署与验证：待验证清单 A1](docs/部署与验证.md)） |
 | merge / split 提交 | 需要可写后端；公开数据只读 |
 | 回放环境 | 必须能访问同一份数据源 |
 
