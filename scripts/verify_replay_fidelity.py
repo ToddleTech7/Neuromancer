@@ -71,6 +71,16 @@ async ([urlA, urlB, regions]) => {
   const sum = () => ({sa: 0, sb: 0, saa: 0, sbb: 0, sab: 0, n: 0});
   const accAll = sum(), chAll = [sum(), sum(), sum()];
   let nAll = 0, sumAbsAll = 0, colAAll = 0, colBAll = 0;
+  const nccOf = (s) => {
+    const ma = s.sa / s.n, mb = s.sb / s.n;
+    const cov = s.sab / s.n - ma * mb;
+    const vA = s.saa / s.n - ma * ma, vB = s.sbb / s.n - mb * mb;
+    return (vA <= 0 || vB <= 0) ? null : cov / Math.sqrt(vA * vB);
+  };
+  const rgbOf = (ch) => {
+    const xs = ch.map(nccOf).filter(x => x !== null);
+    return xs.length ? (xs.reduce((x, y) => x + y, 0) / xs.length) : null;
+  };
   const per = [];
   for (const r of pieces) {
     const sx = Math.round(r[0] * a.width), sy = Math.round(r[1] * a.height);
@@ -103,14 +113,9 @@ async ([urlA, urlB, regions]) => {
       dst.saa += src.saa; dst.sbb += src.sbb; dst.sab += src.sab;
     }
     nAll += acc.n; sumAbsAll += sumAbs; colAAll += colA; colBAll += colB;
-    per.push({box: r, colored_a: colA / acc.n, colored_b: colB / acc.n});
+    per.push({box: r, ncc: nccOf(acc), ncc_rgb: rgbOf(ch),
+              colored_a: colA / acc.n, colored_b: colB / acc.n});
   }
-  const nccOf = (s) => {
-    const ma = s.sa / s.n, mb = s.sb / s.n;
-    const cov = s.sab / s.n - ma * mb;
-    const vA = s.saa / s.n - ma * ma, vB = s.sbb / s.n - mb * mb;
-    return (vA <= 0 || vB <= 0) ? null : cov / Math.sqrt(vA * vB);
-  };
   const rgb = chAll.map(k => nccOf(k)).filter(x => x !== null);
   return {
     mean_abs_diff: sumAbsAll / nAll,

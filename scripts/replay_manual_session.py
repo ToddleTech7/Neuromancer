@@ -60,6 +60,90 @@ class _EvalTimeout(Exception):
 REGIONS_2D = [[0.01, 0.08, 0.49, 0.48],
               [0.51, 0.08, 0.99, 0.48],
               [0.51, 0.52, 0.99, 0.99]]
+REGIONS_2D = [[0.01, 0.08, 0.49, 0.48],
+              [0.51, 0.08, 0.99, 0.48],
+              [0.51, 0.52, 0.99, 0.99]]
+REGIONS_2D_LABELS = ('2d_tl', '2d_tr', '2d_br')
+
+
+def _session_css_px(pack):
+    """录制时的画布 CSS 尺寸；旧包没有就按 4panel 默认。"""
+    for e in pack.get('events') or []:
+        if csp.ctype(e) == 'session.start':
+            css = (e.get('viewport') or {}).get('css_px') or []
+            if (len(css) >= 2 and isinstance(css[0], (int, float))
+                    and isinstance(css[1], (int, float))):
+                return float(css[0]), float(css[1])
+    return 1280.0, 740.0
+
+
+def _ui_panels_at(pack, t_wall):
+    """取锚点时刻最近一次的界面面板矩形；没有前后就取最近一条。"""
+    before = None
+    for e in pack.get('events') or []:
+        if csp.ctype(e) != 'ui.state':
+            continue
+        et = e.get('t_wall') or 0
+        if et <= t_wall:
+            before = e
+    if before is not None:
+        return (before.get('ui') or {}).get('panels') or []
+    for e in pack.get('events') or []:
+        if csp.ctype(e) == 'ui.state':
+            return (e.get('ui') or {}).get('panels') or []
+    return []
+
+
+def _region_specs(pack, anchor, compare_all=False):
+    """按录制时的实际面板生成像素分区。
+
+    默认只比 2D 面板：4panel 的左下是 3D，单独排除；如果用户关掉/打开面板，
+    `ui.state.ui.panels` 会变，分区也跟着变。没有 ui.state 的旧包退回固定 2D 三块。
+    """
+    state = anchor.get('state') or {}
+    layout = state.get('layout')
+    w, h = _session_css_px(pack)
+    panels = _ui_panels_at(pack, anchor.get('t') or 0)
+    boxes = []
+    for i, p in enumerate(panels):
+        if not (isinstance(p, (list, tuple)) and len(p) >= 4):
+            continue
+        try:
+            x, y, pw, ph = (float(p[0]), float(p[1]),
+                            float(p[2]), float(p[3]))
+        except (TypeError, ValueError):
+            continue
+        if pw <= 100 or ph <= 100 or w <= 0 or h <= 0:
+            continue
+        box = [max(0.0, x / w), max(0.0, y / h),
+               min(1.0, (x + pw) / w), min(1.0, (y + ph) / h)]
+        # 留 1% 边，避开面板边框/分隔线
+        box = [box[0] + 0.01, box[1] + 0.01,
+               box[2] - 0.01, box[3] - 0.01]
+        if box[2] - box[0] > 0.02 and box[3] - box[1] > 0.02:
+            boxes.append({'label': 'panel_%d' % i, 'kind': 'panel',
+                          'box': box, 'rect': [x, y, pw, ph]})
+    if not boxes:
+        return [{'label': lab, 'kind': '2d', 'box': b}
+                for lab, b in zip(REGIONS_2D_LABELS, REGIONS_2D)]
+    if compare_all:
+        return boxes
+    if layout == '3d':
+        return [{'label': '3d', 'kind': '3d', 'box': [0.01, 0.01, 0.99, 0.99]}]
+    if layout == '4panel' or len(boxes) == 4:
+        # 左下 = 3D：中心 x 在左半、y 在下半。
+        def _bottom_left(b):
+            x0, y0, x1, y1 = b['box']
+            return ((x0 + x1) / 2 < 0.5) and ((y0 + y1) / 2 > 0.5)
+        keep = [b for b in boxes if not _bottom_left(b)]
+        if keep:
+            for b in keep:
+                b['kind'] = '2d'
+            return keep
+        return [{'label': '3d', 'kind': '3d', 'box': [0.01, 0.01, 0.99, 0.99]}]
+    for b in boxes:
+        b['kind'] = '2d'
+    return boxes
 
 
 def _on_alarm(signum, frame):
@@ -657,7 +741,9 @@ def main(argv=None):
                             if not (live and live.get('url')):
                                 time.sleep(0.5)
                                 continue
-                            regions = None if args.compare_all else REGIONS_2D
+                            specs = _region_specs(pack, a1,
+                                                  compare_all=args.compare_all)
+                            regions = [x['box'] for x in specs]
                             c = eval_timeout(page, CMP_JS,
                                              [shot['dataURL'], live['url'],
                                               regions],
@@ -705,6 +791,24 @@ def main(argv=None):
                               'colored_rec': best['colored_rec'],
                               'colored_live': best['colored_live'],
                               'attempts': attempts}
+                        per = (c or {}).get('per_region') or []
+                        px['regions'] = [
+                            {**spec, **{
+                                'ncc': None if rr.get('ncc') is None
+                                else round(rr['ncc'], 5),
+                                'rgb': None if rr.get('ncc_rgb') is None
+                                else round(rr['ncc_rgb'], 5),
+                                'colored_rec': rr.get('colored_a'),
+                                'colored_live': rr.get('colored_b'),
+                            }}
+                            for spec, rr in zip(specs, per)
+                        ]
+                        if px['regions']:
+                            print('      区域 NCC: ' + '  '.join(
+                                '%s=%s' % (r['label'],
+                                           '—' if r['ncc'] is None
+                                           else '%.3f' % r['ncc'])
+                                for r in px['regions']))
 
                         # 配色不可比（2026-10-27）：NG 的分段配色不保证跨加载一致。
                         # 实测 sess_...j9uwd 的 manual_2：灰度 NCC 0.978、彩色占比
