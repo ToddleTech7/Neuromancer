@@ -87,8 +87,11 @@ PATH 里随便哪个 python 起 `scripts/nx.py` 也能跑：入口会自己挑�
 对应版本 chromium 就位”的解释器再用它起采集窗口（`scripts/py_select.py` 可单独看结果）。
 `bash scripts/*.sh` 那些命令在 Windows 上用 `python scripts/check_offline.py` 与
 `python scripts/nx.py collect / replay` 代替。
-下载卡住时（pip 或 chromium）可用镜像：pip 加 `-i https://pypi.tuna.tsinghua.edu.cn/simple`，
-playwright 先设 `PLAYWRIGHT_DOWNLOAD_HOST=https://cdn.npmmirror.com/binaries/playwright`（写法见使用说明）。
+下载卡住时：pip 先试官方源（本机实测能装完）；确实要换镜像就逐个试，
+镜像自己在哪个环节断并不一定（本机实测：清华镜像能列索引、下载 wheel 回 403）。
+playwright 的浏览器二进制可用 npmmirror：先设
+`PLAYWRIGHT_DOWNLOAD_HOST=https://cdn.npmmirror.com/binaries/playwright` 再跑
+`-m playwright install chromium`（本机实测 18 秒装完 316 MiB）。
 
 默认数据是公开 MICrONS minnie65（EM + 分割），体素 `4/4/40 nm`，
 无需登录、无需 CAVE 权限。
