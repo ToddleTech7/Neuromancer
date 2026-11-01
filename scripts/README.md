@@ -87,8 +87,8 @@
 文件名均为 `test_*.py`：
 
 `test_action_effects` · `test_cave_derive` · `test_cave_join` · `test_cave_op_watcher` ·
-`test_cave_replay` · `test_episodes` · `test_replay_pairs` ·
-`test_replay_state` · `test_session_pack` · `test_validate_samples`（共 153 项）
+`test_cave_replay` · `test_episodes` · `test_replay_pairs` · `test_replay_regions` ·
+`test_replay_state` · `test_replay_studio` · `test_session_pack` · `test_validate_samples`（共 169 项）
 
 ## 9. 常用入口（只记这 7 个）
 

@@ -15,6 +15,7 @@
 """
 
 import json
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -22,6 +23,11 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(HERE))
+
+# 被检查的 CLI 子进程打中文：不给两端统一 UTF-8，
+# 中文 Windows（PYTHONIOENCODING=cp936）下管道解码直接失败（夹具 E）。
+os.environ['PYTHONUTF8'] = '1'
+os.environ['PYTHONIOENCODING'] = 'utf-8'
 
 import cave_join as cj  # noqa: E402
 
@@ -233,19 +239,21 @@ with tempfile.TemporaryDirectory() as td:
     r1 = subprocess.run(
         [sys.executable, str(HERE / 'cave_join.py'), str(sess),
          '--ops', str(opsf), '--out', td],
-        capture_output=True, text=True, timeout=120)
+        capture_output=True, text=True, encoding='utf-8', errors='replace',
+        timeout=120)
     jl = tdp / 'fixture_A.join.jsonl'
     sm = tdp / 'fixture_A.join_summary.json'
     check('E: join CLI exit 0 且产出 jsonl+summary',
           r1.returncode == 0 and jl.exists() and sm.exists(),
-          (r1.stdout[-200:] + r1.stderr[-200:]).replace('\n', ' '))
-    check('E: join CLI 输出 matched 2', 'matched 2' in r1.stdout,
-          r1.stdout[-160:])
+          ((r1.stdout or '')[-200:] + (r1.stderr or '')[-200:]).replace('\n', ' '))
+    check('E: join CLI 输出 matched 2', 'matched 2' in (r1.stdout or ''),
+          (r1.stdout or '')[-160:])
 
     r2 = subprocess.run(
         [sys.executable, str(HERE / 'cave_session_replay.py'),
          str(sess), '--join', str(jl)],
-        capture_output=True, text=True, timeout=120)
+        capture_output=True, text=True, encoding='utf-8', errors='replace',
+        timeout=120)
     htmlp = ROOT / 'results' / 'replay' / 'fixture_A.html'
     html_txt = htmlp.read_text(encoding='utf-8') if htmlp.exists() else ''
     check('E: replay CLI 生成 HTML（含 join 段与 op 行）',

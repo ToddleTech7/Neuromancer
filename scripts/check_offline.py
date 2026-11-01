@@ -13,6 +13,7 @@
 """
 
 import argparse
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -21,11 +22,17 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 PY = sys.executable
 
+# 中文 Windows 常注入 PYTHONIOENCODING=cp936：父端按 UTF-8 读、子端按 GBK 写会解不开
+# （捕获变 None）。这里统一强制 UTF-8，子/孙进程继承后两端一致。
+os.environ['PYTHONUTF8'] = '1'
+os.environ['PYTHONIOENCODING'] = 'utf-8'
+
 
 def step(name, argv):
     """跑一步，只回传末尾几行（失败时多给一些）。"""
     print('\n=== %s ===' % name, flush=True)
-    r = subprocess.run(argv, cwd=str(ROOT), capture_output=True, text=True)
+    r = subprocess.run(argv, cwd=str(ROOT), capture_output=True, text=True,
+                       encoding='utf-8', errors='replace')
     out = (r.stdout or '') + (r.stderr or '')
     lines = [x for x in out.strip().splitlines() if x.strip()]
     if r.returncode == 0:
