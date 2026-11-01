@@ -591,7 +591,7 @@ def main(argv=None):
     pack = load_session(args.session)
     res = derive_episodes(pack, policy or None)
 
-    out = Path(args.out) if args.out else (
+    out = Path(args.out).expanduser() if args.out else (
         Path(pack.get('pack_dir') or '.') / 'derived')
     ep = write_derived(res, out)
 

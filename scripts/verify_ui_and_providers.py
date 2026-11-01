@@ -19,6 +19,7 @@
 """
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -31,6 +32,8 @@ from playwright.sync_api import sync_playwright
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+# 跑下层脚本的管道按 UTF-8 收，所以子进程也得按 UTF-8 写（中文 Windows 缺省 cp936）
+CHILD_ENV = {**os.environ, 'PYTHONUTF8': '1'}
 import cave_session_pack as csp  # noqa: E402
 
 ROOT = HERE.parent
@@ -92,7 +95,9 @@ def main():
     child = subprocess.Popen([sys.executable, '-u',
                               str(HERE / 'cave_local_demo_server.py')],
                              stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                             stderr=subprocess.STDOUT, text=True)
+                             stderr=subprocess.STDOUT, text=True,
+                             encoding='utf-8', errors='replace',
+                             env=CHILD_ENV)
     url = None
     t0 = time.time()
     while time.time() - t0 < 40:

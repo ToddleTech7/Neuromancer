@@ -30,6 +30,7 @@ PY = sys.executable
 VERSION = (HERE.parent / 'VERSION').read_text('utf-8').strip() if (HERE.parent / 'VERSION').exists() else 'dev'
 sys.path.insert(0, str(HERE))
 from cave_session_pack import relpath          # noqa: E402
+import py_select                               # noqa: E402
 # 会话包根目录。设了 NM_SESSIONS 就用它（采集和"找最新包"都跟着走），
 # 否则是仓库内的 results/manual_sessions。
 PKG_ROOT = Path(os.environ.get('NM_SESSIONS')
@@ -77,6 +78,42 @@ def with_pack(args):
     if not p:
         raise SystemExit('没找到会话包：%s 是空的' % relpath(PKG_ROOT))
     return ['--pack', p] + args
+
+
+def choose_py(cmd):
+    """选一个“能起采集窗口”的解释器，把后面的子进程都绑到它上。
+
+    不选的话就是这样：工作台用哪个 python 起，采集窗口就用哪个；用系统 python 起
+    工作台、浏览器却装在 `.venv` 里，按钮就是“点了没反应”。
+    选中与当前不同的解释器时打一行 `[python]`，让人看得见它被换过了。
+
+    只不开窗口的命令（看包/导出/recover）不要求浏览器；doctor 本身要能在
+    什么都没装的机器上跑起来，所以选不到时它继续用当前解释器。
+    """
+    global PY
+    need_browser = cmd in ('studio', 'collect', 'replay', 'export')
+    chosen = py_select.pick(need_browser=need_browser)
+    if chosen['exe']:
+        PY = chosen['exe']
+        os.environ['NM_PYTHON'] = PY     # 工作台起的采集/回放子进程跟着走
+        if PY != sys.executable:
+            print('[python] 换用 %s（原来的 %s 不够用）'
+                  % (PY, sys.executable), flush=True)
+        return PY
+    if not need_browser:
+        return PY
+    print('[python] 没找到同时有 neuroglancer/playwright 且浏览器已装好的解释器'
+          '（试过 %d 个）。' % len(chosen['tried']), file=sys.stderr)
+    if chosen['fixes']:
+        print('先跑：', file=sys.stderr)
+        for c in chosen['fixes']:
+            print('   ' + c, file=sys.stderr)
+    else:
+        print('看起来不是缺依赖，是每个解释器都跑不起来（见下面原因）。',
+              file=sys.stderr)
+    for exe, _ok, why in chosen['tried']:
+        print('   - %s：%s' % (exe, why[:120]), file=sys.stderr)
+    raise SystemExit(1)
 
 
 def build(ns):
@@ -127,6 +164,7 @@ def main(argv=None):
     ap.add_argument('args', nargs=argparse.REMAINDER,
                     help='透传给下层脚本的参数')
     ns = ap.parse_args(argv)
+    choose_py(ns.cmd)
     cmd = build(ns)
     # 路径只显示相对仓库根的部分，换台机器也不会看到别人的 home
     print('[nx] ' + ' '.join(cmd).replace(str(HERE.parent), ''), flush=True)

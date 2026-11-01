@@ -510,6 +510,24 @@ def _host_save(pg, out_root, session_name=None):
         return None
 
 
+def open_fail_hint(err):
+    """按报错内容给一条能直接执行的补救命令（工作台首页也复用这个）。
+
+    踩过的坑：playwright 的浏览器缓存按版本分目录（chromium-1243/1248…），
+    用 A 解释器装的浏览器，B 解释器版本不同就找不到——工作台按钮起的子进程
+    用的正是“起工作台的那个 python”，不是 .venv 时也踩这个坑。
+    """
+    text = str(err)
+    if "Executable doesn't exist" in text or 'ms-playwright' in text:
+        return ('[open] 补救：%r -m playwright install chromium'
+                % sys.executable)
+    if isinstance(err, ImportError) or 'No module named' in text:
+        return ('[open] 补救："%s" 缺 playwright，跑 '
+                '%r -m pip install -r requirements.txt 再装浏览器'
+                % (sys.executable, sys.executable))
+    return ''
+
+
 def open_browser_thread(userscript_path, url, on_close=None, profile=None,
                         session_name=None, out_root=None):
     """本机模式：由我们开一个**真的浏览器窗口**，注入后直接给你用。
@@ -522,7 +540,17 @@ def open_browser_thread(userscript_path, url, on_close=None, profile=None,
     所以本机模式的退出方式是"关窗口"，不用记 Ctrl+C。
     """
     def _run():
-        from playwright.sync_api import sync_playwright
+        try:
+            from playwright.sync_api import sync_playwright
+        except ImportError as err:
+            print('[open] 打开浏览器失败：%s' % str(err).splitlines()[0][:160],
+                  flush=True)
+            hint = open_fail_hint(err)
+            if hint:
+                print(hint, flush=True)
+            print('[open] 当前解释器没有 playwright，本机模式开不了窗口；'
+                  '服务继续运行，可改用 --cdp / 油猴', flush=True)
+            return
         headed = _has_desktop()
         try:
             with sync_playwright() as pw:
@@ -610,6 +638,9 @@ def open_browser_thread(userscript_path, url, on_close=None, profile=None,
         except Exception as err:
             print('[open] 打开浏览器失败：%s' % str(err).splitlines()[0][:160],
                   flush=True)
+            hint = open_fail_hint(err)
+            if hint:
+                print(hint, flush=True)
             print('[open] 服务继续运行；可改用 --cdp / 油猴 / Ctrl+C 退出', flush=True)
             return
         if on_close:
@@ -681,7 +712,9 @@ def main(argv=None):
         child = subprocess.Popen(
             [sys.executable, '-u', str(HERE / 'cave_local_demo_server.py')],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT, text=True, cwd=str(ROOT))
+            stderr=subprocess.STDOUT, text=True,
+            encoding='utf-8', errors='replace', cwd=str(ROOT),
+            env={**os.environ, 'PYTHONUTF8': '1'})
         url = None
         t0 = time.time()
         while time.time() - t0 < 40:
@@ -731,8 +764,8 @@ def main(argv=None):
                 # 没显式给 --out 时用 NM_SESSIONS/默认根；显式 --out 才从那里找。
                 default_out = str(ROOT / 'results' / 'manual_sessions')
                 packdir = _latest_pack(
-                    Path(args.out) if str(args.out) != default_out
-                    else _pack_root())
+                    Path(args.out).expanduser()
+                    if str(args.out) != default_out else _pack_root())
             st = _anchor_state(packdir, args.anchor)
             send('state ' + json.dumps(st))
             print('[anchor] %s @ %s（位置 %s）'
@@ -740,7 +773,7 @@ def main(argv=None):
                      [round(float(x), 1) for x in st.get('position') or []]),
                   flush=True)
 
-    out = Path(args.out)
+    out = Path(args.out).expanduser()
     out.mkdir(parents=True, exist_ok=True)
     Handler.out_root = out
     Handler.verbose = args.verbose

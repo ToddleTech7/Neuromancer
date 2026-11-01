@@ -420,7 +420,7 @@ def main():
     ops = load_ops(args.ops)
     result = join_session(pack, ops, pre_s=args.pre, post_s=args.post)
 
-    out_dir = Path(args.out)
+    out_dir = Path(args.out).expanduser()
     out_dir.mkdir(parents=True, exist_ok=True)
     sid = result['summary']['session_id']
     jl = _unique_path(out_dir / f'{sid}.join.jsonl')

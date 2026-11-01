@@ -21,6 +21,8 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(HERE))
 
+import py_select as ps      # noqa: E402
+
 SESSIONS = Path(os.environ.get('NM_SESSIONS')
                 or (ROOT / 'results' / 'manual_sessions')).expanduser()
 REQUIRED_PKGS = ('neuroglancer', 'playwright')
@@ -90,7 +92,15 @@ def run_checks(with_browser=True):
 
     if with_browser:
         path, ok = _browser()
-        add('Playwright Chromium', ok, path or '未安装（python -m playwright install chromium）')
+        add('Playwright Chromium', ok,
+            path or ('未安装（跑：%s）' % (ps.FIX_BROWSER % sys.executable)))
+        # 采集窗口由“起工作台的那个 python”开；这台机器上谁能用
+        chosen = ps.pick(need_browser=True)
+        add('能起采集窗口的解释器', bool(chosen['exe']),
+            chosen['exe'] if chosen['exe'] else
+            '没有（试过 %d 个）；先跑：%s'
+            % (len(chosen['tried']), ' ／ '.join(chosen['fixes'])),
+            required=False)
 
     for port in (8899, 8913):
         add('端口 %d 空闲（被占用时会自动换）' % port, _port_free(port),

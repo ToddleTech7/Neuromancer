@@ -1,4 +1,5 @@
-"""cave_replay_studio 时间轴：录制视口要跟着鼠标轨迹一起带出。"""
+"""cave_replay_studio 时间轴与采集任务：录制视口要跟着鼠标轨迹一起带出；
+采集窗口开不起来时任务要收尾（不能一直占着 busy）。"""
 import tempfile
 import unittest
 from pathlib import Path
@@ -27,6 +28,51 @@ class TestTimeline(unittest.TestCase):
             tl = cs.build_timeline(pack, Path(tmp))
         self.assertEqual(tl['viewport'], [1280.0, 740.0])
         self.assertEqual(tl['mouse'][-1]['x'], 1200.0)
+
+
+class TestCollectOpenFailure(unittest.TestCase):
+    """子进程开不了浏览器时会自己挂着等 --cdp/油猴；工作台里得有人收尾。"""
+
+    class _Proc:
+        def __init__(self, lines):
+            self.stdout = iter(lines)
+            self.killed = False
+
+        def kill(self):
+            self.killed = True
+
+        def poll(self):
+            return None if not self.killed else 0
+
+    def _run_pump(self, line):
+        r = cs.Runner(None)
+        r.kind = 'collect'
+        r.proc = self._Proc([line, '[open] 服务继续运行\n'])
+        r._pump()
+        return r
+
+    def test_missing_browser_closes_task_with_hint(self):
+        r = self._run_pump('[open] 打开浏览器失败：BrowserType.launch: '
+                           "Executable doesn't exist at "
+                           'C:/x/ms-playwright/chromium-1243/chrome.exe\n')
+        self.assertTrue(r.proc.killed)
+        self.assertIn('打开浏览器失败', r.open_failed)
+        self.assertIn('playwright install chromium', r.open_hint)
+        self.assertFalse(r.status()['running'])
+
+    def test_missing_module_closes_task_with_pip_hint(self):
+        r = self._run_pump('[open] 打开浏览器失败：No module named playwright\n')
+        self.assertTrue(r.proc.killed)
+        self.assertIn('requirements.txt', r.open_hint)
+
+    def test_normal_close_does_not_flag_failure(self):
+        r = cs.Runner(None)
+        r.kind = 'collect'
+        r.proc = self._Proc(['[open] 浏览器已打开\n', '[open] 结束，服务退出。\n'])
+        r._pump()
+        self.assertEqual(r.open_failed, '')
+        self.assertEqual(r.open_hint, '')
+        self.assertFalse(r.proc.killed)
 
 
 if __name__ == '__main__':

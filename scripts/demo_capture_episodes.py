@@ -27,6 +27,7 @@ import argparse
 import contextlib
 import io
 import json
+import os
 import re
 import subprocess
 import sys
@@ -38,6 +39,8 @@ from playwright.sync_api import sync_playwright
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
+# 跑下层脚本的管道按 UTF-8 收，所以子进程也得按 UTF-8 写（中文 Windows 缺省 cp936）
+CHILD_ENV = {**os.environ, 'PYTHONUTF8': '1'}
 SERVER = HERE / 'cave_local_demo_server.py'
 RECORDER = (HERE / 'cave_recorder.user.js').read_text(encoding='utf-8')
 # R2 前置：必须 document-start 注入，等 ng 建好 WebGL 上下文就改不动了
@@ -256,7 +259,7 @@ def main():
         [sys.executable, '-u', str(SERVER)],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT, text=True, encoding='utf-8',
-        errors='replace', bufsize=1, cwd=str(ROOT))
+        errors='replace', bufsize=1, cwd=str(ROOT), env=CHILD_ENV)
 
     def send(cmd):
         proc.stdin.write(cmd + '\n')
@@ -597,7 +600,8 @@ def main():
             r = subprocess.run(
                 [sys.executable, str(HERE / 'verify_replay_fidelity.py'),
                  str(d), '--out', str(fid_path)],
-                capture_output=True, text=True, timeout=480)
+                capture_output=True, text=True, encoding='utf-8',
+                errors='replace', timeout=480, env=CHILD_ENV)
             if r.returncode != 0:
                 print('  [warn] 保真度自检返回', r.returncode,
                       (r.stderr or r.stdout or '')[-300:])

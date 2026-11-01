@@ -31,7 +31,7 @@
 - 缺少依赖可以安装并记录，下载慢时使用可信镜像；不要因为缺库绕开必要功能。
 - 本地和远程可能有更新，覆盖前先检查目标。同步成功才报告成功；不覆盖会话数据。
 
-原型测试：在本目录运行 `python3 -m pytest scripts/ -q`（当前 **169 项**：join/derive/replay/replay_state/回放恢复点与图↔state 绑定/动作有效性地板/op_watcher/validate_samples/回放复位/选中集回放/悬停派生）。Windows 用 `python scripts/check_offline.py`（与 `check_offline.sh` 等价，已自带强制 UTF-8）。
+原型测试：在本目录运行 `python3 -m pytest scripts/ -q`（当前 **185 项**：join/derive/replay/replay_state/回放恢复点与图↔state 绑定/动作有效性地板/op_watcher/validate_samples/回放复位/选中集回放/悬停派生/解释器选择与管道编码）。Windows 用 `python scripts/check_offline.py`（与 `check_offline.sh` 等价，已自带强制 UTF-8）；采集窗口开不起来时入口会自己换解释器（`scripts/py_select.py`）。
 回放相关的四道硬门：`scripts/verify_replay_reset.py`（缺省即默认的复位，本地无网）、
 `scripts/verify_replay_fidelity.py`（重放 state：闭环对齐，不猜等待时间）、
 `scripts/verify_action_replay.py`（重放**输入事件**：拖/缩/点逐段比对，需外网）

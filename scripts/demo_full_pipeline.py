@@ -35,6 +35,7 @@
 import argparse
 import io
 import json
+import os
 import re
 import subprocess
 import sys
@@ -53,6 +54,8 @@ from playwright.sync_api import sync_playwright
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(HERE))
+# 跑下层脚本的管道按 UTF-8 收，所以子进程也得按 UTF-8 写（中文 Windows 缺省 cp936）
+CHILD_ENV = {**os.environ, 'PYTHONUTF8': '1'}
 import browser_util  # noqa: E402
 import cave_session_pack as csp  # noqa: E402
 
@@ -247,7 +250,8 @@ print('  [2/9] 启动本地 Neuroglancer 前端…')
 proc = subprocess.Popen(
     [sys.executable, '-u', str(SERVER)], stdin=subprocess.PIPE,
     stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-    encoding='utf-8', errors='replace', bufsize=1, cwd=str(ROOT))
+    encoding='utf-8', errors='replace', bufsize=1, cwd=str(ROOT),
+    env=CHILD_ENV)
 url = None
 deadline = time.time() + 40
 while time.time() < deadline:
@@ -430,7 +434,8 @@ joined_dir = OUT / 'joined'
 r = subprocess.run(
     [sys.executable, str(HERE / 'cave_join.py'), str(pack_dir),
      '--ops', str(ops_path), '--out', str(joined_dir)],
-    capture_output=True, text=True, cwd=str(ROOT))
+    capture_output=True, text=True, encoding='utf-8', errors='replace',
+    cwd=str(ROOT), env=CHILD_ENV)
 if r.returncode != 0:
     raise SystemExit(f'join 失败: {r.stderr[-600:]}')
 print(r.stdout.rstrip())
@@ -457,7 +462,8 @@ pre_html = {p.name for p in (ROOT / 'results' / 'replay').glob('*.html')}
 r = subprocess.run(
     [sys.executable, str(HERE / 'cave_session_replay.py'),
      str(pack_dir), '--join', str(join_jsonl)],
-    capture_output=True, text=True, cwd=str(ROOT))
+    capture_output=True, text=True, encoding='utf-8', errors='replace',
+    cwd=str(ROOT), env=CHILD_ENV)
 if r.returncode != 0:
     raise SystemExit(f'replay 失败: {r.stderr[-600:]}')
 print(r.stdout.rstrip())
@@ -473,7 +479,8 @@ if not args.no_replay_viewer:
     r = subprocess.run(
         [sys.executable, str(HERE / 'cave_replay_viewer.py'), str(pack_dir),
          '--max-checkpoints', '6'],
-        capture_output=True, text=True, cwd=str(ROOT))
+        capture_output=True, text=True, encoding='utf-8', errors='replace',
+        cwd=str(ROOT), env=CHILD_ENV)
     print(r.stdout.rstrip()[-800:])
     if r.returncode != 0:
         report['warning'].append('状态回放未全部恢复（见 replay_manifest）')
@@ -499,7 +506,8 @@ r = subprocess.run(
     [sys.executable, str(HERE / 'demo_export_samples.py'),
      '--ops', str(REAL['op_id']), '--out', str(sample_out),
      '--join', str(join_jsonl), '--session-pack', str(pack_dir)],
-    capture_output=True, text=True, cwd=str(ROOT))
+    capture_output=True, text=True, encoding='utf-8', errors='replace',
+    cwd=str(ROOT), env=CHILD_ENV)
 print(r.stdout.rstrip()[-1200:])
 sample_json = sample_out / f"sample_{REAL['op_id']}" / 'sample.json'
 if sample_json.exists():

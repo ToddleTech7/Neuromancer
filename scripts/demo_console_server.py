@@ -18,6 +18,7 @@
 
 import argparse
 import json
+import os
 import random
 import string
 import threading
@@ -32,6 +33,9 @@ import sys
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
+# 跑起来的子进程输出收进管道按 UTF-8 读，所以让它按 UTF-8 写
+# （中文 Windows 缺省是 cp936；只改这个子进程，不动整个进程的环境）
+CHILD_ENV = {**os.environ, 'PYTHONUTF8': '1'}
 RES = ROOT / 'results'
 
 LOCK = threading.Lock()
@@ -259,7 +263,7 @@ def _run_task(t, cmd):
         p = subprocess.Popen(
             cmd, cwd=str(ROOT), stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT, text=True, encoding='utf-8',
-            errors='replace', bufsize=1)
+            errors='replace', bufsize=1, env=CHILD_ENV)
         for line in p.stdout:
             t['log'].append(line.rstrip())
         rc = p.wait()

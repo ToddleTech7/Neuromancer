@@ -25,6 +25,7 @@
 | `demo_console_server.py` | 图形控制台：把 demo 命令变成按钮（可选，非必需） |
 | `browser_util.py` | 浏览器启动辅助：优先 playwright chromium，回退系统 chrome |
 | `nx_doctor.py` | 环境自检：Python/依赖/浏览器/目录/端口/最新包 |
+| `py_select.py` | 解释器选择：按“能不能起采集窗口”（依赖 + 对应版本 chromium）挑一个 python，选不出来时给可直接执行的补救命令 |
 
 ## 3. 落包与关联
 
@@ -87,10 +88,10 @@
 文件名均为 `test_*.py`：
 
 `test_action_effects` · `test_cave_derive` · `test_cave_join` · `test_cave_op_watcher` ·
-`test_cave_replay` · `test_episodes` · `test_replay_pairs` · `test_replay_regions` ·
-`test_replay_state` · `test_replay_studio` · `test_session_pack` · `test_validate_samples`（共 169 项）
+`test_cave_replay` · `test_episodes` · `test_py_select` · `test_replay_pairs` · `test_replay_regions` ·
+`test_replay_state` · `test_replay_studio` · `test_session_pack` · `test_validate_samples`（共 185 项）
 
-## 9. 常用入口（只记这 7 个）
+## 9. 常用入口
 
 ```bash
 python3 scripts/nx.py                    # 回放工作台（默认，最新包）
@@ -102,6 +103,7 @@ python3 scripts/nx.py verify-pack        # 校验包完整性（SHA256 + PNG）
 python3 scripts/nx.py doctor             # 环境自检
 python3 scripts/nx.py export-csv         # 导出 CSV
 python3 scripts/nx.py recover            # 崩溃后从草稿恢复
+python3 scripts/py_select.py             # 看采集窗口会用哪个解释器（不改任何东西）
 bash scripts/check_offline.sh            # 离线自检
 ```
 

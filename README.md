@@ -44,7 +44,7 @@ root id 关联。
 | 导出回放视频 | `python3 scripts/nx.py export --seek-t 140` |
 | 查看包结构、事件与完整性摘要 | `python3 scripts/nx.py pack` |
 | 从草稿恢复未保存会话 | `python3 scripts/nx.py recover` |
-| 检查运行环境与依赖 | `python3 scripts/nx.py doctor`（依赖/浏览器/目录/端口） |
+| 检查运行环境与依赖 | `python3 scripts/nx.py doctor`（依赖/浏览器/目录/端口/能用哪个解释器起窗口） |
 | 校验事件、备注与图片完整性 | `python3 scripts/nx.py verify-pack` |
 | 导出事件、片段与悬停表 | `python3 scripts/nx.py export-csv` |
 
@@ -53,7 +53,7 @@ root id 关联。
 ## 快速开始
 
 ```bash
-# 一次性依赖
+# 一次性依赖（Python 3.10 以上，`nx.py doctor` 会查这一项）
 python3 -m venv .venv && . .venv/bin/activate
 pip install -r requirements.txt
 python3 -m playwright install chromium
@@ -72,6 +72,23 @@ python3 scripts/nx.py
 # 验证：只靠输入事件把刚才那段重放一遍（逐段比对）
 python3 scripts/nx.py replay
 ```
+
+Windows（PowerShell）把上面换成这几行（没有 `source`，也不用改执行策略去激活）：
+
+```powershell
+py -3 -m venv .venv                                          # 没有 py 启动器就用 python
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m playwright install chromium
+.\.venv\Scripts\python.exe scripts\nx.py doctor               # 先看环境自检，绿了再采集
+.\.venv\Scripts\python.exe scripts\nx.py                       # 主页（点「开始采集」弹窗口）
+```
+
+PATH 里随便哪个 python 起 `scripts/nx.py` 也能跑：入口会自己挑一个“依赖齐 +
+对应版本 chromium 就位”的解释器再用它起采集窗口（`scripts/py_select.py` 可单独看结果）。
+`bash scripts/*.sh` 那些命令在 Windows 上用 `python scripts/check_offline.py` 与
+`python scripts/nx.py collect / replay` 代替。
+下载卡住时（pip 或 chromium）可用镜像：pip 加 `-i https://pypi.tuna.tsinghua.edu.cn/simple`，
+playwright 先设 `PLAYWRIGHT_DOWNLOAD_HOST=https://cdn.npmmirror.com/binaries/playwright`（写法见使用说明）。
 
 默认数据是公开 MICrONS minnie65（EM + 分割），体素 `4/4/40 nm`，
 无需登录、无需 CAVE 权限。

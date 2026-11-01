@@ -126,7 +126,7 @@ def main(argv=None):
         raise SystemExit('没有可恢复的草稿')
     pack = load_draft(d)
     out, man = csp.pack_session(
-        pack, Path(args.out),
+        pack, Path(args.out).expanduser(),
         legs={'client_process': 'real'},
         reasons={'client_process': '由真实采集的增量草稿恢复'})
     h = man.get('health') or {}

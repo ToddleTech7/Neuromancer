@@ -28,6 +28,7 @@
 import argparse
 import base64
 import json
+import os
 import re
 import shutil
 import signal
@@ -276,7 +277,9 @@ def start_viewer():
     p = subprocess.Popen(
         [sys.executable, '-u', str(SERVER)],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT, text=True, cwd=str(ROOT))
+        stderr=subprocess.STDOUT, text=True,
+        encoding='utf-8', errors='replace', cwd=str(ROOT),
+        env={**os.environ, 'PYTHONUTF8': '1'})
     url = None
     while True:
         line = p.stdout.readline()
@@ -538,7 +541,8 @@ def main(argv=None):
     proc, url = start_viewer()
     send = send_fn(proc)
     # 默认写进包内：一段会话的所有东西（原始/派生/回放产物）留在同一个文件夹
-    base_out = Path(args.out) if args.out else (packdir / 'replay')
+    base_out = (Path(args.out).expanduser() if args.out
+                else (packdir / 'replay'))
     out = base_out / datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')
     out.mkdir(parents=True, exist_ok=True)
 

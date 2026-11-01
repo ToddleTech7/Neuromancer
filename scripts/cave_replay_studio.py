@@ -52,6 +52,60 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 import cave_session_pack as csp  # noqa: E402
+import cave_manual_server as cms  # noqa: E402  # 复用采集端的失败补救文案
+import py_select as ps  # noqa: E402  # 子进程解释器选择（采集窗口能不能开）
+
+
+_PY_PICK = {}
+
+
+def _utf8_env():
+    """给“我们把它的输出读进管道”的子进程：两端得是同一个编码。
+
+    只改这个子进程的环境，不改整个工作台进程的：直接往终端写的中文要按本机
+    控制台编码走，否则中文 PowerShell 会拿 cp936 去解 UTF-8，满屏乱码。
+    """
+    return {**os.environ, 'PYTHONUTF8': '1'}
+
+
+def _pick_child():
+    """挑采集/回放子进程要用的解释器，只挑一次。
+
+    `nx.py` 选过解释器会把它放进 NM_PYTHON，直接沿用；直接跑本脚本时没这个
+    变量，就自己按“能不能起采集窗口”找一个（当前解释器 → 项目 `.venv` → PATH
+    里的 python），全都不可用时退回当前解释器——那时首页会显示缺什么、跑哪条命令。
+    """
+    global _PY_PICK
+    if not _PY_PICK:
+        v = os.environ.get('NM_PYTHON')
+        _PY_PICK = ({'exe': v, 'why': 'env:NM_PYTHON', 'fixes': []}
+                    if v and Path(v).exists()
+                    else ps.pick(current=sys.executable))
+    return _PY_PICK
+
+
+def _child_py():
+    """采集/回放子进程用哪个解释器。"""
+    return _pick_child()['exe'] or sys.executable
+
+
+# 启动时在后台问一次“子进程要用的解释器能不能开采集窗口”，结果给首页提示用
+_PY_CHECK = {'ok': None, 'why': '', 'exe': sys.executable, 'fixes': []}
+
+
+def _check_py():
+    exe = _child_py()
+    ok, why = ps.probe(exe)
+    why = str(why)
+    _PY_CHECK.update({'ok': ok, 'why': why[:200], 'exe': exe,
+                      'fixes': [] if ok else ps.fix_commands(exe, why)})
+    if not ok:
+        print('[studio] 提醒：%s 开不了采集窗口（%s）' % (exe, why[:120]), flush=True)
+        for c in _PY_CHECK['fixes']:
+            print('[studio]       ' + c, flush=True)
+        print('[studio]       或者用 `python3 scripts/nx.py` 起（它会自己挑能用的解释器）',
+              flush=True)
+
 
 STATE_TYPES = ('viewer.state-change', 'viewer.checkpoint')
 
@@ -237,7 +291,8 @@ class Bridge:
     def start(self):
         self.proc = subprocess.Popen(
             [sys.executable, '-u', str(HERE / 'cave_local_demo_server.py')],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,
+            encoding='utf-8', errors='replace', bufsize=1, env=_utf8_env())
         url = None
         for line in self.proc.stdout:
             line = line.strip()
@@ -435,6 +490,8 @@ class Runner:
         self.log = ''
         self.out = ''
         self.new_pack = ''
+        self.open_failed = ''
+        self.open_hint = ''
         self.started_at = 0.0
         self.lock = threading.Lock()
 
@@ -450,7 +507,7 @@ class Runner:
                 # 采集：开一个已注入 recorder 的浏览器窗口（用户自己操作）。
                 # 退出码 / 新包目录由 _pump 收尾时补上。
                 # 直接调 python：demo_manual.sh 是 bash，Windows 上跑不了
-                cmd = [sys.executable, str(HERE / 'cave_manual_server.py'),
+                cmd = [_child_py(), str(HERE / 'cave_manual_server.py'),
                        '--open']
                 # 首页填的"存哪 / 叫什么 / 用哪份数据"从这里进去
                 if opts.get('out'):
@@ -470,7 +527,7 @@ class Runner:
                     if d and d.get('seg'):
                         cmd += ['--seg', d['seg']]
             else:
-                cmd = [sys.executable, '-u',
+                cmd = [_child_py(), '-u',
                        str(HERE / 'replay_manual_session.py'),
                        '--pack', str(self.packdir),
                        '--seek-t', '%.2f' % float(t)]
@@ -479,10 +536,13 @@ class Runner:
                 else:
                     cmd += ['--video']
             self.kind, self.log, self.out, self.new_pack = kind, '', '', ''
+            self.open_failed, self.open_hint = '', ''
             self.started_at = time.time()
             self.proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                                          stderr=subprocess.STDOUT,
-                                         text=True, bufsize=1)
+                                         text=True, encoding='utf-8',
+                                         errors='replace', bufsize=1,
+                                         env=_utf8_env())
             threading.Thread(target=self._pump, daemon=True).start()
             # 带 cmd 出来：首页/日志里能核对"到底用什么参数起的"
             return {'ok': True, 'kind': kind, 'cmd': cmd}
@@ -492,6 +552,18 @@ class Runner:
             self.log = (self.log + line)[-6000:]
             if line.startswith('报告:'):
                 self.out = line.split(':', 1)[1].strip()
+            if self.kind == 'collect' and line.startswith('[open] 打开浏览器失败'):
+                # 采集子进程开不了窗口时会留着服务继续等 --cdp/油猴（CLI 场景合理），
+                # 工作台里没终端可 Ctrl+C，会一直占着 busy，之后每次点按钮只回
+                # “已有任务在跑”——看起来就是“点了没反应”。这里直接收尾。
+                self.open_failed = line.strip()
+                # 补救命令自己拼（杀掉子进程后它的后续行读不到了），文案沿用采集端那份
+                self.open_hint = cms.open_fail_hint(line)
+                try:
+                    self.proc.kill()
+                except OSError:
+                    pass
+                break
         if self.kind == 'collect':
             self.new_pack = newest_pack_since(self.started_at - 5) or ''
 
@@ -499,6 +571,8 @@ class Runner:
         lines = [l for l in self.log.strip().splitlines() if l.strip()]
         return {'kind': self.kind, 'running': self.busy(),
                 'tail': lines[-6:], 'out': self.out,
+                'open_failed': self.open_failed,
+                'open_hint': self.open_hint,
                 'new_pack': self.new_pack}
 
 
@@ -667,6 +741,7 @@ HTML = r"""<!doctype html>
         <button id="hstart">开始采集</button>
         <span class="hmsg" id="hmsg"></span>
       </div>
+      <div class="hmsg" id="hwarn" style="color:#b42318"></div>
       <div class="hmsg" style="margin-top:8px;line-height:1.7">
         点了会在新窗口里打开 Neuroglancer 并开始录；录完先点左下角「结束并保存」，再关窗口。
       </div>
@@ -839,6 +914,10 @@ function pollTask() {
         .then(r => r.json())
         .then(x => { if (x.err) { el.textContent = x.err; } else { location.reload(); } });
       el.appendChild(btn);
+    } else if (d.open_failed) {
+      // 窗口没开起来时把原因和补救命令直接拉到页面上，不让人去猜
+      el.textContent = '采集窗口没开起来：' + d.open_failed +
+        (d.open_hint ? '　' + d.open_hint : '');
     } else if (d.out) {
       el.textContent = '完成 → ' + d.out;
     } else if (d.tail.length) {
@@ -1017,6 +1096,11 @@ function pollCollect() {
     fetch('/api/run').then(r => r.json()).then(d => {
       if (d.running) return;
       clearInterval(collectTimer); collectTimer = null;
+      if (d.open_failed) {
+        homeMsg('采集窗口没开起来：' + d.open_failed +
+                (d.open_hint ? '　' + d.open_hint : ''));
+        return;
+      }
       homeMsg(d.new_pack ? ('已保存：' + d.new_pack) : '采集结束。');
       loadHome();
     });
@@ -1024,6 +1108,16 @@ function pollCollect() {
 }
 function loadHome() {
   fetch('/api/sessions').then(r => r.json()).then(d => {
+    const warn = document.getElementById('hwarn');
+    if (warn) {
+      const py = d.py || {};
+      warn.textContent = py.ok === false
+        ? ('这台机器的解释器（' + py.exe + '）开不了采集窗口：' + py.why +
+           '　先跑：' + (py.fixes || []).join('　'))
+        : '';
+      // 解释器是启动后在后台问的，第一次刷新时可能还没结果，过几秒再看一次
+      if (py.ok === null || py.ok === undefined) setTimeout(loadHome, 4000);
+    }
     document.getElementById('homeRoot').textContent = '目录：' + d.root;
     const box = document.getElementById('hsessions');
     if (!d.sessions || !d.sessions.length) {
@@ -1335,7 +1429,8 @@ class Handler(BaseHTTPRequestHandler):
                         'is_current': bool(self.studio.packdir) and
                                       d.resolve() == Path(self.studio.packdir).resolve(),
                     })
-            self._send(200, json.dumps({'root': rel_to_root(root), 'sessions': rows},
+            self._send(200, json.dumps({'root': rel_to_root(root), 'sessions': rows,
+                                        'py': _PY_CHECK},
                                        ensure_ascii=False))
             return
         if p == '/api/catalog':
@@ -1458,7 +1553,9 @@ class Handler(BaseHTTPRequestHandler):
             cmd = [sys.executable, str(HERE / 'cave_episodes.py'), pack]
         try:
             r = subprocess.run(cmd, capture_output=True, text=True,
-                               timeout=300, cwd=str(HERE.parent))
+                               encoding='utf-8', errors='replace',
+                               timeout=300, cwd=str(HERE.parent),
+                               env=_utf8_env())
             out = {'kind': kind, 'pack': pack, 'code': r.returncode,
                    'stdout': (r.stdout or '')[-6000:],
                    'stderr': (r.stderr or '')[-2000:]}
@@ -1540,6 +1637,8 @@ def pick_directory():
     工作台是本地服务，所以直接调系统的选择框最省事。
     """
     import platform
+    # 这三个调用不强制 UTF-8：对面是系统自带的脚本宿主/对话框工具，输出用的是
+    # 它自己的控制台编码（不是我们那些 python 子进程），按本机缺省读最稳。
     sysname = platform.system()
     if sysname == 'Darwin':
         try:
@@ -1682,6 +1781,10 @@ def main(argv=None):
           % (len(studio.snaps), len(studio.shots), len(pack.get('events') or [])))
     print('[studio] NG      %s' % url)
     print('[studio] 工作台  %s' % addr)
+    print('[python] 解释器 %s（采集子进程用 %s）'
+          % (sys.executable, _child_py()), flush=True)
+    # 后台问一次“这个解释器能不能开采集窗口”，不成则只提醒，不影响其它功能
+    threading.Thread(target=_check_py, daemon=True).start()
     if not args.no_open:
         threading.Timer(0.6, lambda: webbrowser.open(addr)).start()
     try:

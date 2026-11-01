@@ -61,7 +61,7 @@ def build(sink, matches, out):
                         for h in {host, '127.0.0.1', 'localhost'})
     match = '\n'.join('// @match        %s' % m for m in matches)
 
-    body = f"""(function () {{
+    body = rf"""(function () {{
   'use strict';
   window.__caveSaveUrl = {sink!r};
   window.__caveDraftUrl = {sink!r}.replace(/\/save$/, '/draft');
@@ -107,7 +107,7 @@ def build_console(sink, out):
     """
     rec = (HERE / 'cave_recorder.user.js').read_text(encoding='utf-8')
     boot = (HERE / 'manual_boot.js').read_text(encoding='utf-8')
-    text = f"""/* CAVE 采集（控制台版，无扩展）
+    text = rf"""/* CAVE 采集（控制台版，无扩展）
  * 用法：打开数据页 → F12 → Console → 粘贴本文件全部内容 → 回车
  * 说明：没有 document-start 补丁，关键帧可能为空；回放会跳过像素比对。
  */

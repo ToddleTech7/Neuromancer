@@ -22,6 +22,7 @@
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import threading
@@ -33,6 +34,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(HERE))
+# 子进程的输出收进管道按 UTF-8 读，所以让它按 UTF-8 写（中文 Windows 缺省 cp936）
+CHILD_ENV = {**os.environ, 'PYTHONUTF8': '1'}
 
 import cave_session_pack as csp  # noqa: E402
 import replay_state as rsq       # noqa: E402
@@ -194,7 +197,8 @@ def main(argv=None):
     proc = subprocess.Popen(
         [sys.executable, '-u', str(SERVER)], stdin=subprocess.PIPE,
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-        encoding='utf-8', errors='replace', bufsize=1, cwd=str(ROOT))
+        encoding='utf-8', errors='replace', bufsize=1, cwd=str(ROOT),
+        env=CHILD_ENV)
     url = None
     t0 = time.time()
     while time.time() - t0 < 40:

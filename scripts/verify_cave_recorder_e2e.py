@@ -21,6 +21,7 @@ SwiftShader 下 canvas readback 可能为空（页面截图不受影响）。
 """
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -37,6 +38,9 @@ import cave_session_pack as csp   # ctype：事件名对齐 RF01–RF15
 HERE = Path(__file__).resolve().parent     # scripts/
 ROOT = HERE.parent                         # 仓库根
 SERVER = HERE / 'cave_local_demo_server.py'
+# 本地 demo 服务的输出收进管道按 UTF-8 读，所以让它按 UTF-8 写
+# （中文 Windows 缺省是 cp936；只改这个子进程，不动整个进程的环境）
+CHILD_ENV = {**os.environ, 'PYTHONUTF8': '1'}
 RECORDER = (HERE / 'cave_recorder.user.js').read_text(encoding='utf-8')
 
 OUT = ROOT / 'results' / 'recorder_verify'
@@ -60,7 +64,7 @@ proc = subprocess.Popen(
     stdin=subprocess.PIPE, stdout=subprocess.PIPE,
     stderr=subprocess.STDOUT,
     text=True, encoding='utf-8', errors='replace', bufsize=1,
-    cwd=str(ROOT))
+    cwd=str(ROOT), env=CHILD_ENV)
 
 
 def send(cmd):
