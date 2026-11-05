@@ -133,6 +133,7 @@ neuromancer/
 | [数据格式](docs/数据格式.md) | 包结构、事件与字段字典、读取方式、已知限制 |
 | [docs/modules/](docs/modules/) | 各模块的职责、接口、设计要点与验证 |
 | [回放隔离](docs/回放隔离.md) | 历史只读复现 / 写行为 sandbox 的边界与检查清单 |
+| [Tampermonkey 集成](docs/Tampermonkey集成.md) | CAVE 页面入口与现有采集器的合并设计 |
 | [scripts/README.md](scripts/README.md) | 代码文件的角色分组索引 |
 
 ### 按问题查找
