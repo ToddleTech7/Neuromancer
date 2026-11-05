@@ -23,6 +23,65 @@ cave_manual_server → 会话包 → 回放 / join / 派生
 
 CAVE 登录由 CAVE/Keycloak 完成。采集器不接管登录、不保存密码、不读取 token。
 
+## 当前现场状态
+
+2026-11-05 已在真实 CAVE 页面上做过只读注入验证：
+
+- 数据页路径是 `/viewer/spelunker/#!...`，不是 `/v/<token>/`；
+- 顶层 `window.viewer === true`；
+- 通过 CDP 注入现有 userscript 后，`window.__caveRecorder` 可启动，面板显示，已记录事件和关键帧；
+- 关键帧状态为 `painted_partial`，没有把未画完的帧写成 `captured`；
+- 当前 `img` 图层可读，`seg` 表返回 `403 missing_permission`，要求 `view`。
+
+已排除的采集器问题：
+
+- 不是 Tampermonkey 的匹配路径问题：构建规则已经包含 `/viewer/*`；
+- 不是证书问题：API 的 `auth_info` 已返回 200；
+- 不是 Cookie 完全缺失：请求头里存在 `middle_auth_token`；
+- 不是端口写错：数据页确实是 `:32443`；
+- 不是 Chrome 单浏览器问题：Safari 也复现 403；
+- 不是账号密码错误：登录和 Keycloak 账号页正常。
+
+因此当前阻塞点是 **CAVE 的 middle_auth 授权/环境差异**，不是采集器本身。采集器可以继续开发宿主兼容和保存链路，但真实分割画面的验收必须等权限打通。
+
+## 后续计划
+
+### 先做环境对齐，不写代码
+
+- 对比 Mac 与工作电脑的 `api.cave-iat.local` 远端地址（公网/内网）；
+- 对比同一 API 请求的 Cookie/Authorization 是否存在；
+- 确认工作电脑是否使用 `cave-iat` 生产而不是 `cave-test`；
+- 需要时在一台 Windows 机器上按附件原样复现；
+- 记录 `missing_permission` 的 request id、状态码和响应摘要，供 CAVE 管理员查 middle_auth。
+
+### 再做宿主兼容
+
+- 安装 Tampermonkey 版，验证 `window.viewer`、`__caveRecorder`、面板、截图、保存；
+- 当前构建头使用 `@grant GM_xmlhttpRequest`，需要确认沙箱能否访问页面全局；
+- 若不行，改成页面上下文 recorder + 特权保存桥接；
+- 结果写回本文件，不靠“应该可以”。
+
+### 保存链路
+
+- HTTPS 页面保存到本地 HTTP 的 GM/fetch 两条路径分别验证；
+- 失败必须有导出/下载回退，不能静默丢包；
+- 保存端点、版本号、匹配规则参数化；
+- 安装页显示当前构建版本。
+
+### 采集稳定性
+
+- 登录跳转/刷新后只创建一个 recorder；
+- 多标签页互斥；
+- `viewer` 重建后的恢复；
+- 权限不足时面板明确显示 `missing_permission`，不要把 403 当采集成功。
+
+### 回放与数据
+
+- 为 CAVE 私有源准备只读代理或固定快照；
+- 缺少认证时标 `visual_replay_status=partial/unavailable`；
+- 写行为只在 sandbox 回放；
+- 保持现有会话包和回放工具兼容。
+
 ## 兼容边界
 
 | 层 | 现有实现 | CAVE 适配 |

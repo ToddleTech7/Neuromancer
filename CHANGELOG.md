@@ -1,5 +1,10 @@
 # 变更记录
 
+## 文档：CAVE 现场接入状态与后续计划
+
+- 记录真实 CAVE `/viewer/spelunker/` 的注入结果、middle_auth 403 边界和后续开发顺序。
+- 明确 403 不是采集器/证书/端口问题，真实分割验收前先做环境与授权对齐。
+
 ## 采集器兼容 CAVE/Spelunker 路径
 
 - `cave_recorder.user.js` 的油猴匹配增加 `*://*/viewer/*`；真实 CAVE 的 `/viewer/spelunker/#!...` 不再只能靠 `--cdp` 注入。
