@@ -1,5 +1,9 @@
 # 变更记录
 
+## 采集器兼容 CAVE/Spelunker 路径
+
+- `cave_recorder.user.js` 的油猴匹配增加 `*://*/viewer/*`；真实 CAVE 的 `/viewer/spelunker/#!...` 不再只能靠 `--cdp` 注入。
+
 ## 文档补充：回放隔离边界
 
 - 明确历史只读复现与写行为 sandbox 的分层边界；真实可写 CAVE 不作为默认回放目标。

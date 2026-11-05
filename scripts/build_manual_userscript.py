@@ -142,13 +142,13 @@ def main(argv=None):
     ap.add_argument('--sink', default='http://127.0.0.1:8899/save',
                     help='保存端点（cave_manual_server.py 打印的 SAVE_URL）')
     ap.add_argument('--match', action='append', default=None,
-                    help='油猴 @match，可重复；默认 *://*/v/*')
+                    help='油猴 @match，可重复；默认 *://*/v/* 和 *://*/viewer/*')
     ap.add_argument('--out', default=str(ROOT / 'results' / 'manual_userscript'
                                         / 'cave_manual.user.js'))
     ap.add_argument('--console', default=None,
                     help='额外出一个控制台版（无补丁、无扩展）：给路径')
     args = ap.parse_args(argv)
-    matches = args.match or ['*://*/v/*']
+    matches = args.match or ['*://*/v/*', '*://*/viewer/*']
     if args.console:
         c_out, c_n = build_console(args.sink, Path(args.console))
         print('已生成控制台版 %s（%.1f KB，无需扩展）' % (c_out, c_n / 1024.0))

@@ -4,6 +4,7 @@
 // @version      0.9.0
 // @description  只读记录 Neuroglancer 会话：视角状态流/选择/鼠标/滚轮/按键/图层/关键帧/备注 + 状态与缺口 + 提交锚点（只观察 CAVE API 调用与回执），一键导出会话包。不修改任何请求/响应。
 // @match        *://*/v/*
+// @match        *://*/viewer/*
 // @match        http://localhost:*/*
 // @match        http://127.0.0.1:*/*
 // @run-at       document-idle
